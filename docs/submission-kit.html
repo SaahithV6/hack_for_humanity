@@ -102,42 +102,24 @@
   }
   .lede { color: var(--ink-soft); margin: 0 0 26px; max-width: 64ch; }
 
-  /* ---------- the script ---------- */
-  /* The timecode rail is the spine: these beats are a real timeline, so the
-     ordering carries information the reader needs while recording. */
-  .beat {
-    display: grid;
-    grid-template-columns: 92px 1fr 1.15fr;
-    gap: 0 24px;
-    border-top: 1px solid var(--line);
-    padding: 20px 0;
-  }
-  .beat:last-of-type { border-bottom: 1px solid var(--line); }
-  .tc {
+  /* ---------- talking points ---------- */
+  .talk { border-top: 1px solid var(--line); padding: 22px 0 6px; }
+  .talk-h { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+  .talk-n {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-variant-numeric: tabular-nums;
-    font-size: 13px; font-weight: 500; color: var(--lamp);
-    line-height: 1.5;
+    font-size: 12px; font-weight: 600; color: var(--lamp);
   }
-  .tc span { display: block; color: var(--ink-faint); font-size: 11px;
-             font-weight: 400; margin-top: 3px; }
-  .col-h {
+  .talk-h h3 {
+    font-family: Newsreader, Georgia, serif; font-weight: 600;
+    font-size: 22px; margin: 0; letter-spacing: -.01em; flex: 1;
+  }
+  .talk-t {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 10px; letter-spacing: .13em; text-transform: uppercase;
-    color: var(--ink-faint); margin: 0 0 7px;
+    font-size: 11px; color: var(--ink-faint); white-space: nowrap;
   }
-  .screen { color: var(--ink-soft); font-size: 14px; }
-  .screen ul { margin: 0; padding-left: 17px; }
-  .screen li { margin-bottom: 4px; }
-  .vo {
-    font-family: Newsreader, Georgia, serif;
-    font-size: 18px; line-height: 1.5; color: var(--ink);
-  }
-  .vo p { margin: 0; }
-  .beat-head {
-    display: grid; grid-template-columns: 92px 1fr 1.15fr; gap: 0 24px;
-    padding-bottom: 4px;
-  }
+  .talk ul { margin: 0; padding-left: 18px; max-width: 70ch; }
+  .talk li { margin-bottom: 7px; color: var(--ink-soft); }
+  .talk li b { color: var(--ink); font-weight: 600; }
 
   /* ---------- callouts ---------- */
   .note {
@@ -149,23 +131,6 @@
   .note strong { color: var(--ink); }
   .note.warn { border-left: 2px solid var(--alarm); }
   .note.tip  { border-left: 2px solid var(--lamp); }
-
-  /* ---------- shot list ---------- */
-  .shots { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: shot; }
-  .shots li {
-    display: grid; grid-template-columns: 30px 1fr; gap: 14px;
-    background: var(--raised); border: 1px solid var(--line);
-    border-radius: 10px; padding: 13px 16px; font-size: 14px;
-    box-shadow: var(--shadow);
-  }
-  .shots li::before {
-    counter-increment: shot; content: counter(shot);
-    font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 12px; color: var(--lamp); font-weight: 600;
-    padding-top: 2px;
-  }
-  .shots b { color: var(--ink); font-weight: 600; }
-  .shots span { color: var(--ink-soft); }
 
   /* ---------- devpost copy blocks ---------- */
   .field { border-top: 1px solid var(--line); padding: 22px 0; }
@@ -212,19 +177,8 @@
   }
 
   @media (max-width: 720px) {
-    .beat, .beat-head { grid-template-columns: 1fr; gap: 6px; }
-    .beat-head { display: none; }
-    .tc { color: var(--lamp); margin-bottom: 6px; }
-    .tc span { display: inline; margin-left: 8px; }
-    .vo { font-size: 17px; }
-    .screen { margin-top: 10px; }
-    .screen::before, .vo::before {
-      font-family: "IBM Plex Mono", ui-monospace, monospace;
-      font-size: 10px; letter-spacing: .13em; text-transform: uppercase;
-      color: var(--ink-faint); display: block; margin-bottom: 5px;
-    }
-    .screen::before { content: "On screen"; }
-    .vo::before { content: "Narration"; }
+    .mast { padding-top: 40px; }
+    .talk-h { flex-wrap: wrap; }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -234,152 +188,74 @@
   <header class="mast">
     <div>
       <h1>Moth <em>submission kit</em></h1>
-      <p>Shooting script and Devpost copy. Hack for Humanity, Summer 2026 — due Fri Sep 4, 11:45 PM EDT.</p>
+      <p>Talking points and Devpost copy. Hack for Humanity, Summer 2026 — due Fri Sep 4, 11:45 PM EDT.</p>
     </div>
     <div class="runtime">
-      Target runtime
+      Aim for
       <b>2:00</b>
-      255 words &middot; 7 beats
+      talk over a screen recording
     </div>
   </header>
 
   <section>
     <p class="eyebrow">Part one</p>
-    <h2>The two-minute script</h2>
-    <p class="lede">Narration is timed at roughly 135 words per minute, which leaves the UI room to breathe. Read it slower than feels natural — the pauses are where the app gets to be seen.</p>
+    <h2>What to talk about</h2>
+    <p class="lede">Not a script. Screen-record the app, talk over it, and hit these in order. Riff — the points matter, the wording doesn't.</p>
 
-    <div class="beat-head">
-      <div></div>
-      <p class="col-h">On screen</p>
-      <p class="col-h">Narration</p>
+    <div class="talk">
+      <div class="talk-h"><span class="talk-n">1</span><h3>The problem</h3><span class="talk-t">~20s</span></div>
+      <ul>
+        <li>It's midnight, you meant to sleep an hour ago, and you're not even enjoying it.</li>
+        <li>It's not willpower. Stress makes the feed attractive, the feed makes the stress worse.</li>
+        <li>It's worst at bedtime, because going to bed means sitting with a day you can't account for.</li>
+      </ul>
     </div>
 
-    <div class="beat">
-      <div class="tc">0:00–0:16<span>26 words</span></div>
-      <div class="screen">
-        <p class="col-h">On screen</p>
-        <ul>
-          <li>Dark room. A phone, feed scrolling, thumb moving.</li>
-          <li>Cut to the lock screen clock: <b>11:47 PM</b>.</li>
-          <li>Hold on it a beat too long.</li>
-        </ul>
-      </div>
-      <div class="vo">
-        <p class="col-h">Narration</p>
-        <p>It's almost midnight. You meant to sleep an hour ago. You're not even enjoying this — you just can't put it down.</p>
-      </div>
+    <div class="talk">
+      <div class="talk-h"><span class="talk-n">2</span><h3>Click through it</h3><span class="talk-t">~60s</span></div>
+      <ul>
+        <li>Six questions and a bedtime. That's the whole setup.</li>
+        <li><b>One task at a time, never a list.</b> A list is something you scan and pick nothing from — same paralysis as the feed. Worth saying out loud; it's the main design call.</li>
+        <li>Tap Done a couple of times.</li>
+        <li>Hit <b>I'm stuck scrolling</b> — point out it's instant, no loading.</li>
+        <li>Show <b>What Moth learned</b>: it works out what you actually do and drops the rest.</li>
+        <li>After five tasks you write your own — and it autocompletes, so barely any typing.</li>
+      </ul>
     </div>
 
-    <div class="beat">
-      <div class="tc">0:16–0:30<span>33 words</span></div>
-      <div class="screen">
-        <ul>
-          <li>Simple motion graphic: stress → feed → stress, closing into a loop.</li>
-          <li>Keep it plain. No stock footage.</li>
-        </ul>
-      </div>
-      <div class="vo">
-        <p>Doomscrolling isn't a discipline problem. Stress makes the feed attractive, and the feed makes the stress worse. It peaks at bedtime — because going to bed means sitting with a day you can't account for.</p>
-      </div>
+    <div class="talk">
+      <div class="talk-h"><span class="talk-n">3</span><h3>Bedtime</h3><span class="talk-t">~20s</span></div>
+      <ul>
+        <li>At your bedtime it interrupts you.</li>
+        <li>Reads the day back using what you actually did.</li>
+        <li>Then goodnight — and there's nothing else in the app to look at.</li>
+      </ul>
     </div>
 
-    <div class="beat">
-      <div class="tc">0:30–0:42<span>28 words</span></div>
-      <div class="screen">
-        <ul>
-          <li>App launches. Moth appears, wings settling.</li>
-          <li>Three fast cuts through onboarding questions.</li>
-          <li>Land on the home screen, one task card.</li>
-        </ul>
-      </div>
-      <div class="vo">
-        <p>This is Moth. Six questions, then it gives you one small thing at a time. Never a list — a list is something you scan, and pick nothing from.</p>
-      </div>
-    </div>
-
-    <div class="beat">
-      <div class="tc">0:42–1:00<span>42 words</span></div>
-      <div class="screen">
-        <ul>
-          <li>Read one task card fully. Let it sit.</li>
-          <li>Tap <b>Done</b> — buddy reacts, check mark.</li>
-          <li>Tap <b>I'm stuck scrolling</b>. New task appears instantly.</li>
-        </ul>
-      </div>
-      <div class="vo">
-        <p>Every task names one physical action and says where it ends. And when you're already in the scroll, one button pulls you out. It answers instantly — because at midnight on a bad connection, a spinner means you go back to the feed.</p>
-      </div>
-    </div>
-
-    <div class="beat">
-      <div class="tc">1:00–1:20<span>41 words</span></div>
-      <div class="screen">
-        <ul>
-          <li>The five-segment bar filling as tasks complete.</li>
-          <li>Flash <b>What Moth learned</b> — the percentage bars.</li>
-          <li>Compose screen: tap two suggestions, task written, no keyboard.</li>
-        </ul>
-      </div>
-      <div class="vo">
-        <p>It learns which kinds of things you actually do, at what time, at what energy — and stops offering the rest. After five, you write your own. It predicts them, so it's three taps instead of a paragraph at midnight.</p>
-      </div>
-    </div>
-
-    <div class="beat">
-      <div class="tc">1:20–1:42<span>48 words</span></div>
-      <div class="screen">
-        <ul>
-          <li>Bedtime notification lands.</li>
-          <li>Summary reveals line by line — <b>let it play</b>.</li>
-          <li>Stats row, then the closing line.</li>
-        </ul>
-      </div>
-      <div class="vo">
-        <p>Then at your bedtime, it interrupts you, and reads the day back. Your actual tasks, in your words. Because the reason bed is hard is that an unnarrated day defaults to <em>I did nothing.</em> Then it says goodnight — and there's nothing else in the app to look at.</p>
-      </div>
-    </div>
-
-    <div class="beat">
-      <div class="tc">1:42–2:00<span>37 words</span></div>
-      <div class="screen">
-        <ul>
-          <li>Toggle airplane mode on. App keeps working.</li>
-          <li>Terminal: harness printing <b style="color:var(--alarm)">REJECTED — made up a number</b>.</li>
-          <li>End card: <em>Built in 30 hours. Swift, 59 tests, zero dependencies.</em></li>
-          <li>Moth closes its eyes. Cut to black.</li>
-        </ul>
-      </div>
-      <div class="vo">
-        <p>All of this runs on the phone. Offline, a few megabytes, on a four-gigabyte phone. One optional cloud model writes the goodnight — and if it invents a number, or something you didn't do, it gets thrown away.</p>
-      </div>
+    <div class="talk">
+      <div class="talk-h"><span class="talk-n">4</span><h3>The tech, fast</h3><span class="talk-t">~20s</span></div>
+      <ul>
+        <li>All on the phone. Few megabytes, works offline, runs on a 4GB phone.</li>
+        <li>One optional cloud model writes only the goodnight.</li>
+        <li>Everything it writes gets checked — invents a number or something you didn't do, it's thrown away.</li>
+      </ul>
     </div>
 
     <div class="note tip">
-      <p><strong>The airplane-mode shot is the one to get right.</strong> It is the whole Responsible AI argument in four seconds, and no competitor's demo can show it. Film it as one unbroken take — pull down Control Centre, tap airplane mode, tap through two more tasks. No cuts, or it reads as staged.</p>
+      <p><strong>Turn on airplane mode while you're demoing.</strong> Four seconds, no setup, and it's the whole privacy argument — almost nobody else at this hackathon can show their app working with the network off. Don't cut away while you do it.</p>
+    </div>
+
+    <div class="note">
+      <p><strong>Say these once each, then stop:</strong> &ldquo;behavioural activation — the action comes first, the motivation follows&rdquo; &middot; &ldquo;no dependencies, 59 tests&rdquo; &middot; &ldquo;built in 30 hours&rdquo;. Judges score the research grounding, and it takes one sentence.</p>
+    </div>
+
+    <div class="note warn">
+      <p><strong>Two things before you record.</strong> Delete the app from the simulator first or you'll launch past onboarding. And if the cloud toggle is on, hit the Render URL once to wake it — the free tier sleeps and the app will quietly fall back to its local summary.</p>
     </div>
   </section>
 
   <section>
     <p class="eyebrow">Part two</p>
-    <h2>How to shoot it</h2>
-    <p class="lede">Record everything silent first, then lay narration over the top. Trying to narrate live while tapping is how a two-minute video takes four hours.</p>
-
-    <ol class="shots">
-      <li><span><b>Simulator, not a device.</b> iPhone 15 sim, then <code>File &rsaquo; Record Screen</code>. Clean status bar, no notifications, perfect framing.</span></li>
-      <li><span><b>Reset before recording.</b> Delete the app from the sim so onboarding is fresh — otherwise it launches straight into the home screen and the first beat has nothing to show.</span></li>
-      <li><span><b>Get to bedtime fast.</b> Set the bedtime a few minutes ahead during onboarding rather than waiting for 11pm.</span></li>
-      <li><span><b>Use the previews for the hard screens.</b> <code>HomeView.swift</code> has a <em>Groove</em> preview and <code>BedtimeView.swift</code> has a seeded day — no tapping through five tasks to film the summary.</span></li>
-      <li><span><b>Harness shot.</b> <code>swift run mothdemo --validate</code> with a bad candidate piped in. Full-screen terminal, large font.</span></li>
-      <li><span><b>Narrate last</b>, in one pass, off this script. Re-record single beats rather than the whole thing.</span></li>
-    </ol>
-
-    <div class="note warn">
-      <p><strong>If the cloud toggle is on, warm the proxy first.</strong> Render's free tier sleeps after 15 minutes and takes up to a minute to wake — past the client's 3-second timeout. The app would silently fall back to its local summary and you'd film the wrong thing without knowing. Hit the URL once immediately before recording, or just shoot with the toggle off.</p>
-    </div>
-  </section>
-
-  <section>
-    <p class="eyebrow">Part three</p>
     <h2>Devpost copy</h2>
     <p class="lede">Paste straight into the submission form. Written to be read by a judge who has thirty of these to get through.</p>
 
