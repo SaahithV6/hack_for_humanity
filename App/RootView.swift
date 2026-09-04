@@ -38,3 +38,11 @@ struct RootView: View {
         }
     }
 }
+
+#Preview("Onboarding") {
+    RootView().environmentObject(Store.preview(.onboarding))
+}
+
+#Preview("In progress") {
+    RootView().environmentObject(Store.preview(.guided))
+}

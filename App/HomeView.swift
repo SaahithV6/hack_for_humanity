@@ -413,3 +413,17 @@ struct LearnedView: View {
         }
     }
 }
+
+#Preview("Guided") {
+    HomeView().environmentObject(Store.preview(.guided))
+        .background(NightBackground())
+}
+
+#Preview("Groove") {
+    HomeView().environmentObject(Store.preview(.groove))
+        .background(NightBackground())
+}
+
+#Preview("What Moth learned") {
+    LearnedView().environmentObject(Store.preview(.endOfDay))
+}

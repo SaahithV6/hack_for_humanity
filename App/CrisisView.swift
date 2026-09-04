@@ -75,3 +75,7 @@ struct CrisisView: View {
         .buttonStyle(.plain)
     }
 }
+
+#Preview {
+    CrisisView().environmentObject(Store.preview(.crisis))
+}

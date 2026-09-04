@@ -194,13 +194,16 @@ struct MothBuddy: View {
     }
 }
 
-#Preview {
+#Preview("Moods") {
     ZStack {
         NightBackground()
-        VStack(spacing: 40) {
-            MothBuddy(mood: .idle)
-            MothBuddy(mood: .pleased, size: 110)
-            MothBuddy(mood: .sleepy, size: 110)
+        VStack(spacing: 36) {
+            MothBuddy(mood: .idle, size: 130)
+            HStack(spacing: 30) {
+                MothBuddy(mood: .pleased, size: 100)
+                MothBuddy(mood: .sleepy, size: 100)
+                MothBuddy(mood: .listening, size: 100)
+            }
         }
     }
 }

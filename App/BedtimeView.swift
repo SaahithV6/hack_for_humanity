@@ -150,3 +150,7 @@ struct BedtimeView: View {
         }
     }
 }
+
+#Preview {
+    BedtimeView().environmentObject(Store.preview(.endOfDay))
+}

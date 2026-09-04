@@ -178,3 +178,7 @@ struct ComposeView: View {
         }
     }
 }
+
+#Preview {
+    ComposeView().environmentObject(Store.preview(.groove))
+}

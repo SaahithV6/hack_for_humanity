@@ -281,3 +281,8 @@ struct OnboardingView: View {
         store.completeOnboarding(intake)
     }
 }
+
+#Preview {
+    OnboardingView().environmentObject(Store.preview(.onboarding))
+        .background(NightBackground())
+}

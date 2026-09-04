@@ -26,12 +26,17 @@ final class Store: ObservableObject {
     private var engine: Engine
     private let storeURL: URL
     private let enrichment = EnrichmentClient()
+    /// False in Xcode previews, so the canvas never reads or writes the real
+    /// state file. Without this, editing a preview would quietly mutate the
+    /// history of whatever was last run in the simulator.
+    private let persists: Bool
 
     // MARK: - Lifecycle
 
     init() {
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         storeURL = dir.appendingPathComponent("moth-state.json")
+        persists = true
 
         let loaded: MothState
         if let data = try? Data(contentsOf: storeURL),
@@ -44,7 +49,16 @@ final class Store: ObservableObject {
         refresh()
     }
 
+    /// In-memory store for previews and tests. Touches no disk.
+    init(previewState: MothState) {
+        storeURL = URL(fileURLWithPath: "/dev/null")
+        persists = false
+        engine = Engine(state: previewState)
+        refresh()
+    }
+
     private func save() {
+        guard persists else { return }
         // Atomic so an interrupted write cannot leave a half-file that fails
         // to decode and silently resets somebody's history.
         guard let data = try? JSONEncoder().encode(engine.state) else { return }
@@ -252,5 +266,95 @@ final class Store: ObservableObject {
         currentTask = nil
         lastCompleted = nil
         refresh()
+    }
+}
+
+
+// MARK: - Preview fixtures
+
+// Deliberately not behind `#if DEBUG`: the `#Preview` macro expands into
+// code that is compiled in Release too, so guarding these fixtures would break
+// the Release build with "no member 'preview'".
+extension Store {
+
+    /// The states worth looking at in the canvas. Building these by hand beats
+    /// clicking through onboarding every time a colour changes.
+    enum Scenario {
+        /// Fresh install, no intake yet.
+        case onboarding
+        /// Moth is assigning; a task is on screen.
+        case guided
+        /// Enough completions that self-authoring has unlocked.
+        case groove
+        /// A day with history behind it, for the bedtime read-back.
+        case endOfDay
+        /// Intake tripped the safety gate.
+        case crisis
+    }
+
+    static func preview(_ scenario: Scenario) -> Store {
+        var state = MothState()
+
+        switch scenario {
+        case .onboarding:
+            return Store(previewState: state)
+
+        case .crisis:
+            state.intake = Intake(lowInterestDays: 3, lowMoodDays: 3,
+                                  hasSelfHarmThoughts: true, baselineMood: 1)
+            return Store(previewState: state)
+
+        case .guided:
+            state.intake = Intake(baselineMood: 3, caresAbout: [.tend, .sense])
+            let store = Store(previewState: state)
+            store.nextTask()
+            return store
+
+        case .groove, .endOfDay:
+            state.intake = Intake(baselineMood: 3, caresAbout: [.tend, .sense],
+                                  bedtimeMinutes: 23 * 60)
+            state.ladder = Ladder(level: 2.4)
+
+            let today = Journal.dayIndex(for: Date())
+            var day = DayRecord(id: today)
+            day.tasks = [
+                MothTask(text: "Clear your desk. Only your desk \u{2014} stop when it's done.",
+                         archetype: .tend, effort: 2, estimatedMinutes: 5,
+                         origin: .engine, offeredAt: Date(), outcome: .done),
+                MothTask(text: "Drink a full glass of water.", archetype: .nourish,
+                         effort: 1, estimatedMinutes: 2, origin: .engine,
+                         offeredAt: Date(), outcome: .done),
+                MothTask(text: "Name five things you can see.", archetype: .sense,
+                         effort: 1, estimatedMinutes: 2, origin: .engine,
+                         offeredAt: Date(), outcome: .done),
+                MothTask(text: "Text my sister back", archetype: .connect, effort: 2,
+                         estimatedMinutes: 4, origin: .user, offeredAt: Date(),
+                         outcome: .done),
+            ]
+            state.journal.update(day)
+
+            // A few days behind it, so the streak and the bandit have something
+            // to say.
+            for offset in 1...3 {
+                var past = DayRecord(id: today - offset)
+                past.tasks = [
+                    MothTask(text: "Stand up. That's the whole task.", archetype: .move,
+                             effort: 1, estimatedMinutes: 1, origin: .engine,
+                             offeredAt: Date(), outcome: .done),
+                    MothTask(text: "Put one mug in the sink.", archetype: .tend,
+                             effort: 1, estimatedMinutes: 2, origin: .engine,
+                             offeredAt: Date(), outcome: .done),
+                ]
+                state.journal.update(past)
+            }
+
+            for _ in 0..<6 { state.bandit.record(.tend, bucket: "night/mid", completed: true) }
+            for _ in 0..<4 { state.bandit.record(.sense, bucket: "night/mid", completed: true) }
+            for _ in 0..<5 { state.bandit.record(.move, bucket: "night/mid", completed: false) }
+
+            let store = Store(previewState: state)
+            if scenario == .groove { store.nextTask() }
+            return store
+        }
     }
 }
