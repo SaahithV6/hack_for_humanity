@@ -150,7 +150,7 @@ restates numbers that appear inside the tasks we sent it ("Name **five** things
 you can see"), which the first version wrongly flagged as fabrication. Both are
 now pinned by tests.
 
-`Tests/MothEngineTests/HarnessTests.swift` fires 31 adversarial outputs at it —
+`Tests/MothEngineTests/HarnessTests.swift` puts 35 tests through it —
 assistant preamble, fabricated counts, invented accomplishments, "amazing work",
 bedtime advice, a suggestion to go scroll Instagram — and asserts each is caught
 for the right reason.
@@ -215,7 +215,7 @@ To run on a physical device, set your team under
 tests anywhere Swift runs, Linux included:
 
 ```bash
-swift test          # 57 tests
+swift test          # 63 tests
 swift run mothdemo  # drives a full simulated day through the engine
 ```
 
