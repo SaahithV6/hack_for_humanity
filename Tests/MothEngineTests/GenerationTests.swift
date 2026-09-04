@@ -152,6 +152,16 @@ final class GenerationTests: XCTestCase {
         XCTAssertEqual(e.state.journal.record(for: Journal.dayIndex(for: date(22, 0))).tasks.count, 0)
     }
 
+    func testCrisisScreenCanBeAcknowledged() {
+        // The view layer cannot assign to engine.state -- it is private(set) --
+        // so this has to go through a named operation. Pinning it because the
+        // first version of the app tried the assignment and did not compile.
+        let e = engine(at: date(20, 0))
+        XCTAssertFalse(e.state.acknowledgedCrisisScreen)
+        e.acknowledgeCrisisScreen()
+        XCTAssertTrue(e.state.acknowledgedCrisisScreen)
+    }
+
     func testSelfHarmIntakeRoutesToCrisis() {
         let intake = Intake(hasSelfHarmThoughts: true)
         XCTAssertEqual(Safety.screen(intake: intake), .crisis)
@@ -340,6 +350,40 @@ final class GenerationTests: XCTestCase {
             XCTAssertLessThanOrEqual(t.effort, target + 1,
                                      "drifted to e\(t.effort) against target e\(target): \(t.text)")
         }
+    }
+
+    func testBedtimeIsAWindowNotEverythingAfterBedtime() {
+        // An 11pm bedtime must not still read as "bedtime" at 9am. The signed
+        // wrap makes anything more than 12 hours early look late, so without a
+        // bounded window the app shows the goodnight summary over breakfast.
+        let morning = engine(intake: Intake(bedtimeMinutes: 23 * 60), at: date(9, 0))
+        XCTAssertFalse(morning.isBedtime, "9am read as bedtime")
+
+        let noon = engine(intake: Intake(bedtimeMinutes: 23 * 60), at: date(12, 30))
+        XCTAssertFalse(noon.isBedtime, "half twelve read as bedtime")
+
+        // The genuine window: at and after bedtime, through the small hours.
+        let atBedtime = engine(intake: Intake(bedtimeMinutes: 23 * 60), at: date(23, 0))
+        XCTAssertTrue(atBedtime.isBedtime)
+
+        let lateNight = engine(intake: Intake(bedtimeMinutes: 23 * 60), at: date(1, 30))
+        XCTAssertTrue(lateNight.isBedtime, "1:30am should still be bedtime")
+    }
+
+    func testNoTasksAreOfferedPastBedtime() {
+        let e = engine(intake: Intake(bedtimeMinutes: 23 * 60), at: date(23, 30))
+        let ctx = e.context(energy: 3, mood: 3)
+        for seed in UInt64(0)..<40 {
+            XCTAssertNil(e.nextTask(context: ctx, seed: seed),
+                         "offered a task after bedtime")
+        }
+    }
+
+    func testTasksResumeTheNextMorning() {
+        let e = engine(intake: Intake(bedtimeMinutes: 23 * 60), at: date(9, 0))
+        let ctx = e.context(energy: 3, mood: 3)
+        XCTAssertNotNil(e.nextTask(context: ctx, seed: 1),
+                        "morning should offer tasks again")
     }
 
     func testMinutesToBedtimeWrapsPastMidnight() {

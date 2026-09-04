@@ -26,6 +26,7 @@ final class Store: ObservableObject {
     private var engine: Engine
     private let storeURL: URL
     private let enrichment = EnrichmentClient()
+    private var bedtimeTimer: Timer?
     /// False in Xcode previews, so the canvas never reads or writes the real
     /// state file. Without this, editing a preview would quietly mutate the
     /// history of whatever was last run in the simulator.
@@ -47,7 +48,10 @@ final class Store: ObservableObject {
         }
         engine = Engine(state: loaded)
         refresh()
+        startBedtimeWatch()
     }
+
+    deinit { bedtimeTimer?.invalidate() }
 
     /// In-memory store for previews and tests. Touches no disk.
     init(previewState: MothState) {
@@ -76,6 +80,7 @@ final class Store: ObservableObject {
 
     var context: Context { engine.context(energy: energy, mood: mood) }
     var isBedtime: Bool { engine.isBedtime }
+    var hasFinishedToday: Bool { engine.hasFinishedToday }
     var minutesToBedtime: Int { engine.minutesToBedtime }
     var riskLevel: RiskLevel { engine.riskLevel }
     var intake: Intake? { engine.state.intake }
@@ -135,9 +140,7 @@ final class Store: ObservableObject {
     }
 
     func acknowledgeCrisis() {
-        var state = engine.state
-        state.acknowledgedCrisisScreen = true
-        engine = Engine(state: state)
+        engine.acknowledgeCrisisScreen()
         showingCrisis = false
         save()
     }
@@ -145,6 +148,12 @@ final class Store: ObservableObject {
     // MARK: - Tasks
 
     func nextTask(rescue: Bool = false) {
+        // Past bedtime the engine returns nothing by design; don't ask, and
+        // put the wind-down up instead.
+        guard !engine.isBedtime else {
+            checkBedtime()
+            return
+        }
         let ctx = engine.context(energy: energy, mood: mood, rescue: rescue)
         currentTask = engine.nextTask(context: ctx)
         buddyMood = .idle
@@ -226,6 +235,36 @@ final class Store: ObservableObject {
         buddyMood = .sleepy
         save()
         refresh()
+    }
+
+    // MARK: - Bedtime watch
+
+    /// Polls the clock so bedtime arrives even if the app is already open.
+    ///
+    /// The notification only helps somebody who is elsewhere on their phone.
+    /// The person this app is for is often sitting *in* Moth at 11pm, ticking
+    /// off one more task -- and without this, bedtime would simply never come
+    /// for them. Thirty seconds is plenty; the cost is one date comparison.
+    private func startBedtimeWatch() {
+        bedtimeTimer?.invalidate()
+        let timer = Timer(timeInterval: 30, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.checkBedtime() }
+        }
+        // .common so it keeps firing while a scroll view is being dragged.
+        RunLoop.main.add(timer, forMode: .common)
+        bedtimeTimer = timer
+    }
+
+    /// Presents the wind-down if it is due and has not already been done today.
+    func checkBedtime() {
+        guard phase != .onboarding else { return }
+        guard engine.isBedtime, !engine.hasFinishedToday, !showingBedtime else { return }
+        // Clear the task first: nothing should be sitting behind the summary
+        // waiting to be tapped when they dismiss it.
+        currentTask = nil
+        lastCompleted = nil
+        buddyMood = .sleepy
+        showingBedtime = true
     }
 
     // MARK: - Notifications

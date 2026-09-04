@@ -31,11 +31,11 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, newPhase in
             // Coming back to the app after bedtime has passed is exactly the
             // moment to interrupt -- they have almost certainly just been
-            // somewhere else on the phone.
-            if newPhase == .active, store.isBedtime, store.phase != .onboarding {
-                store.showingBedtime = true
-            }
+            // somewhere else on the phone. The store's timer covers the case
+            // where they never left.
+            if newPhase == .active { store.checkBedtime() }
         }
+        .onAppear { store.checkBedtime() }
     }
 }
 

@@ -153,17 +153,46 @@ public final class Engine {
         return (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
     }
 
-    /// Minutes until bedtime, wrapping past midnight so a 12:30am check-in
-    /// against an 11pm bedtime reads as 90 minutes late, not 22 hours early.
+    /// Minutes until bedtime. Negative only inside the wind-down window just
+    /// after it, so 12:30am against an 11pm bedtime reads as 90 minutes late.
+    ///
+    /// The naive signed wrap at twelve hours was wrong in a way that broke far
+    /// more than the bedtime screen: at 9am an 11pm bedtime came out as -600,
+    /// and since every grammar gate requires `minutesToBedtime >= 0`, the
+    /// generator silently had no admissible frames all morning. Measuring
+    /// forward to the *next* bedtime keeps the value positive everywhere
+    /// except the hours we actually mean.
     public var minutesToBedtime: Int {
         guard let bedtime = state.intake?.bedtimeMinutes else { return 240 }
-        var delta = bedtime - minutesNow
-        if delta < -720 { delta += 1440 }
-        if delta > 720 { delta -= 1440 }
-        return delta
+        // Minutes until the next occurrence of bedtime, 0 ..< 1440.
+        let untilNext = ((bedtime - minutesNow) % 1440 + 1440) % 1440
+        // Almost a full day away means it has just passed; report that as late.
+        if untilNext > 1440 - Engine.bedtimeWindowMinutes {
+            return untilNext - 1440
+        }
+        return untilNext
     }
 
-    public var isBedtime: Bool { minutesToBedtime <= 0 }
+    /// How long after bedtime the wind-down still applies.
+    ///
+    /// Bedtime has to be a *window*, not "everything after". `minutesToBedtime`
+    /// is signed and wraps at twelve hours, so anything more than twelve hours
+    /// before bedtime reads as late instead of early -- which meant an 11pm
+    /// bedtime was still reporting "past bedtime" at nine the next morning.
+    /// Six hours covers anyone still up at 5am and hands the day back after.
+    public static let bedtimeWindowMinutes = 360
+
+    /// True from the moment bedtime arrives until the window closes.
+    public var isBedtime: Bool {
+        let delta = minutesToBedtime
+        return delta <= 0 && delta > -Engine.bedtimeWindowMinutes
+    }
+
+    /// Whether the day has already been closed out, so the summary is not
+    /// pushed at somebody twice.
+    public var hasFinishedToday: Bool {
+        state.journal.record(for: today).windDownCompleted
+    }
 
     // MARK: - Context
 
@@ -205,6 +234,11 @@ public final class Engine {
     /// for a sentence, records it as offered, and hands it back.
     public func nextTask(context ctx: Context, seed: UInt64? = nil) -> MothTask? {
         applyPendingDecay()
+
+        // Once bedtime arrives the day is over. Handing out another task here
+        // would make Moth the thing keeping you up, which is the exact
+        // behaviour it exists to interrupt.
+        guard !isBedtime else { return nil }
 
         var rng = SeededRNG(seed: seed ?? UInt64(now.timeIntervalSince1970 * 1000).byteSwapped)
 
@@ -393,6 +427,16 @@ public final class Engine {
 
     public func setCloudEnrichment(_ enabled: Bool) {
         state.cloudEnrichmentEnabled = enabled
+    }
+
+    /// Records that the user has dismissed the crisis screen, so they are not
+    /// trapped behind it on every launch.
+    ///
+    /// This needs a method because `state` is `private(set)`: the engine owns
+    /// its own state and the view layer reaches it through named operations,
+    /// never by assignment.
+    public func acknowledgeCrisisScreen() {
+        state.acknowledgedCrisisScreen = true
     }
 
     public func completeWindDown() {
