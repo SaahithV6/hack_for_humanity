@@ -19,7 +19,32 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 const app = express();
 app.use(express.json({ limit: "16kb" }));
 
-const client = new Anthropic();
+/**
+ * Which model writes the prose.
+ *
+ * Deliberately swappable. The harness on the device is what makes the output
+ * safe, not the choice of model -- so this can follow whichever key we can
+ * actually get hold of, and a weaker-but-faster model is a perfectly
+ * reasonable trade when everything it says is checked anyway.
+ *
+ * Selected by whichever key is present; PROVIDER overrides.
+ */
+type Provider = "anthropic" | "cerebras";
+
+const provider: Provider =
+  (process.env.PROVIDER as Provider | undefined) ??
+  (process.env.CEREBRAS_API_KEY ? "cerebras" : "anthropic");
+
+// Constructed lazily: the Anthropic client throws at construction when no key
+// is present, which would take the whole service down on a Cerebras deploy.
+let anthropic: Anthropic | null = null;
+function anthropicClient(): Anthropic {
+  if (!anthropic) anthropic = new Anthropic();
+  return anthropic;
+}
+
+const CEREBRAS_MODEL = process.env.CEREBRAS_MODEL ?? "gpt-oss-120b";
+const CEREBRAS_URL = "https://api.cerebras.ai/v1/chat/completions";
 
 /** Deliberately small. Anything not named here is rejected, not ignored. */
 const EnrichmentRequestSchema = z
@@ -141,10 +166,67 @@ Return a short greeting, the body, and a closing line that sends them to sleep.
 `.trim();
 }
 
+// MARK: - Cerebras
+
+/**
+ * Cerebras speaks the OpenAI chat-completions shape. We ask for JSON in the
+ * prompt and parse defensively rather than relying on a structured-output
+ * feature, because a 400 from an unsupported parameter would be a hard failure
+ * where a malformed body is merely a fallback.
+ */
+async function cerebras(system: string, user: string): Promise<unknown> {
+  const response = await fetch(CEREBRAS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.CEREBRAS_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: CEREBRAS_MODEL,
+      max_completion_tokens: 700,
+      temperature: 0.7,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    }),
+  });
+
+  if (!response.ok) throw new Error(`cerebras_${response.status}`);
+  const payload = (await response.json()) as {
+    choices?: { message?: { content?: string } }[];
+  };
+  const text = payload.choices?.[0]?.message?.content;
+  if (!text) throw new Error("cerebras_empty");
+  return extractJSON(text);
+}
+
+/**
+ * Pulls a JSON object out of a model's reply.
+ *
+ * Open models routinely wrap JSON in markdown fences or add a sentence of
+ * preamble. Recovering from that here costs a few lines; failing on it would
+ * throw away an otherwise good summary.
+ */
+function extractJSON(raw: string): unknown {
+  const cleaned = raw
+    .replace(/^\s*```(?:json)?/i, "")
+    .replace(/```\s*$/, "")
+    .trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start === -1 || end <= start) throw new Error("unparseable");
+    return JSON.parse(cleaned.slice(start, end + 1));
+  }
+}
+
 // MARK: - Handlers
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, provider });
 });
 
 app.post("/v1/enrich", async (req, res) => {
@@ -155,52 +237,56 @@ app.post("/v1/enrich", async (req, res) => {
   }
   const request = parsed.data;
 
+  const isTask = request.kind === "task";
+  const prompt = isTask ? taskPrompt(request) : summaryPrompt(request);
+  const schema = isTask ? TaskCandidateSchema : SummaryCandidateSchema;
+
   try {
-    if (request.kind === "task") {
-      const response = await client.messages.parse({
+    let candidate: unknown;
+
+    if (provider === "cerebras") {
+      candidate = await cerebras(
+        `${HOUSE_STYLE}\n\nReply with JSON only. No markdown, no commentary.`,
+        `${prompt}\n\nReturn JSON with exactly these keys: ${Object.keys(schema.shape).join(", ")}.`
+      );
+    } else {
+      // Note on refusals: we deliberately do NOT configure server-side model
+      // fallbacks. For this app the right thing to fall back to is the
+      // on-device engine, not another cloud model -- the local result is
+      // already good, already validated, and already on the user's screen.
+      const response = await anthropicClient().messages.parse({
         model: "claude-opus-5",
         max_tokens: 1024,
         system: HOUSE_STYLE,
-        messages: [{ role: "user", content: taskPrompt(request) }],
+        messages: [{ role: "user", content: prompt }],
         output_config: {
           effort: "low",
-          format: zodOutputFormat(TaskCandidateSchema),
+          format: zodOutputFormat(schema),
         },
       });
-      if (response.stop_reason === "refusal" || !response.parsed_output) {
+      if (response.stop_reason === "refusal") {
         return res.status(503).json({ error: "no_candidate" });
       }
-      return res.json(response.parsed_output);
+      candidate = response.parsed_output;
     }
 
-    // Note on refusals: we deliberately do NOT configure server-side model
-    // fallbacks here. For this app the right thing to fall back to is the
-    // on-device engine, not another cloud model -- the local result is already
-    // good, already validated, and already on the user's screen.
-
-    const response = await client.messages.parse({
-      model: "claude-opus-5",
-      max_tokens: 1024,
-      system: HOUSE_STYLE,
-      messages: [{ role: "user", content: summaryPrompt(request) }],
-      output_config: {
-        effort: "low",
-        format: zodOutputFormat(SummaryCandidateSchema),
-      },
-    });
-    if (response.stop_reason === "refusal" || !response.parsed_output) {
+    // Shape check before it goes on the wire. The device re-validates content
+    // regardless; this only catches a malformed body early.
+    const checked = schema.safeParse(candidate);
+    if (!checked.success) {
       return res.status(503).json({ error: "no_candidate" });
     }
-    return res.json(response.parsed_output);
+    return res.json(checked.data);
   } catch (error) {
-    // Log the shape of the failure, never the payload.
-    const name = error instanceof Error ? error.name : "unknown";
-    console.error(`enrich failed: ${name}`);
+    // Log the shape of the failure, never the payload. The messages we throw
+    // are status codes and parse states, so they carry no user content.
+    const detail = error instanceof Error ? error.message : "unknown";
+    console.error(`enrich failed (${provider}): ${detail}`);
     return res.status(503).json({ error: "upstream_unavailable" });
   }
 });
 
 const port = Number(process.env.PORT ?? 3000);
 app.listen(port, () => {
-  console.log(`moth enrichment proxy listening on ${port}`);
+  console.log(`moth enrichment proxy listening on ${port} (provider: ${provider})`);
 });
