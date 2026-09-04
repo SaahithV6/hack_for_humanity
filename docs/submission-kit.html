@@ -102,24 +102,45 @@
   }
   .lede { color: var(--ink-soft); margin: 0 0 26px; max-width: 64ch; }
 
-  /* ---------- talking points ---------- */
-  .talk { border-top: 1px solid var(--line); padding: 22px 0 6px; }
-  .talk-h { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; }
-  .talk-n {
+  /* ---------- the script ---------- */
+  /* This gets read aloud off the page while recording, so spoken lines are set
+     big with a short measure -- roughly a breath per line -- and the cues sit
+     small and grey so the eye never mistakes one for the other. */
+  .beat-block { margin-top: 30px; }
+  .beat-h {
+    display: flex; align-items: baseline; gap: 14px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px; margin-bottom: 18px;
+  }
+  .beat-h h3 {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 12px; font-weight: 600; color: var(--lamp);
+    font-weight: 600; font-size: 12px; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--lamp-deep);
+    margin: 0; flex: 1;
   }
-  .talk-h h3 {
-    font-family: Newsreader, Georgia, serif; font-weight: 600;
-    font-size: 22px; margin: 0; letter-spacing: -.01em; flex: 1;
-  }
-  .talk-t {
+  .beat-t {
     font-family: "IBM Plex Mono", ui-monospace, monospace;
-    font-size: 11px; color: var(--ink-faint); white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    font-size: 12px; color: var(--ink-faint); white-space: nowrap;
   }
-  .talk ul { margin: 0; padding-left: 18px; max-width: 70ch; }
-  .talk li { margin-bottom: 7px; color: var(--ink-soft); }
-  .talk li b { color: var(--ink); font-weight: 600; }
+  .say {
+    font-family: Newsreader, Georgia, serif;
+    font-size: 23px; line-height: 1.5; color: var(--ink);
+    margin: 0 0 16px; max-width: 54ch;
+  }
+  .say em { color: var(--lamp); font-style: italic; }
+  .cue {
+    font-size: 13px; line-height: 1.55; color: var(--ink-faint);
+    margin: -6px 0 22px; max-width: 60ch;
+    padding-left: 13px; border-left: 2px solid var(--line);
+  }
+  .cue b { color: var(--ink-soft); font-weight: 600; }
+  .fill {
+    color: var(--lamp); font-style: normal; font-weight: 600;
+    background: rgba(255,191,92,.10);
+    border-bottom: 1px dashed var(--lamp-deep);
+    padding: 0 3px; border-radius: 2px;
+  }
 
   /* ---------- callouts ---------- */
   .note {
@@ -178,7 +199,7 @@
 
   @media (max-width: 720px) {
     .mast { padding-top: 40px; }
-    .talk-h { flex-wrap: wrap; }
+    .say { font-size: 21px; }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -188,69 +209,101 @@
   <header class="mast">
     <div>
       <h1>Moth <em>submission kit</em></h1>
-      <p>Talking points and Devpost copy. Hack for Humanity, Summer 2026 — due Fri Sep 4, 11:45 PM EDT.</p>
+      <p>Narration script and Devpost copy. Hack for Humanity, Summer 2026 — due Fri Sep 4, 11:45 PM EDT.</p>
     </div>
     <div class="runtime">
-      Aim for
-      <b>2:00</b>
-      talk over a screen recording
+      Runtime
+      <b>3:44</b>
+      543 words &middot; cap 4:00
     </div>
   </header>
 
   <section>
-    <p class="eyebrow">Part one</p>
-    <h2>What to talk about</h2>
-    <p class="lede">Not a script. Screen-record the app, talk over it, and hit these in order. Riff — the points matter, the wording doesn't.</p>
+    <p class="eyebrow">Part one &middot; 3:44 &middot; 543 words</p>
+    <h2>Read this out loud</h2>
+    <p class="lede">Everything in large type is spoken word for word. Grey lines are what to have on screen while you say it — you're talking over a screen recording, so they're cues, not instructions. Replace <b class="fill">PARTNER</b> with your partner's name.</p>
 
-    <div class="talk">
-      <div class="talk-h"><span class="talk-n">1</span><h3>The problem</h3><span class="talk-t">~20s</span></div>
-      <ul>
-        <li>It's midnight, you meant to sleep an hour ago, and you're not even enjoying it.</li>
-        <li>It's not willpower. Stress makes the feed attractive, the feed makes the stress worse.</li>
-        <li>It's worst at bedtime, because going to bed means sitting with a day you can't account for.</li>
-      </ul>
+    <div class="beat-block">
+      <div class="beat-h"><h3>Intro</h3><span class="beat-t">0:05</span></div>
+      <p class="say">Hey judges. I'm Saahith, and this is <span class="fill">PARTNER</span>. Our submission is called Moth.</p>
+      <p class="cue">App open on the home screen, or just your faces. Don't over-produce the opening.</p>
     </div>
 
-    <div class="talk">
-      <div class="talk-h"><span class="talk-n">2</span><h3>Click through it</h3><span class="talk-t">~60s</span></div>
-      <ul>
-        <li>Six questions and a bedtime. That's the whole setup.</li>
-        <li><b>One task at a time, never a list.</b> A list is something you scan and pick nothing from — same paralysis as the feed. Worth saying out loud; it's the main design call.</li>
-        <li>Tap Done a couple of times.</li>
-        <li>Hit <b>I'm stuck scrolling</b> — point out it's instant, no loading.</li>
-        <li>Show <b>What Moth learned</b>: it works out what you actually do and drops the rest.</li>
-        <li>After five tasks you write your own — and it autocompletes, so barely any typing.</li>
-      </ul>
+    <div class="beat-block">
+      <div class="beat-h"><h3>The problem</h3><span class="beat-t">0:52</span></div>
+
+      <p class="say">The mental health problem we're trying to solve is doomscrolling before bed.</p>
+
+      <p class="say">We picked that because it does double damage. The obvious harm is sleep — you're on your phone until two in the morning, so you sleep badly, and everything is harder the next day.</p>
+      <p class="cue">A phone in a dark room. A lock screen clock reading something past midnight.</p>
+
+      <p class="say">The second harm is worse. Every night in the feed, you're training yourself to take dopamine from the cheapest available source. Endless, effortless, and it never actually satisfies anything. So the next night, the pull is stronger.</p>
+      <p class="cue">Keep scrolling footage running. This is the line that separates you from a screen-time app — slow down on it.</p>
+
+      <p class="say">And it's hardest to break at night. Going to bed means lying in the dark with your own day — and if you can't point to anything in it, your brain fills that silence with: <em>I did nothing again.</em> So you scroll instead.</p>
+      <p class="cue">Go to black for a second before the app appears.</p>
     </div>
 
-    <div class="talk">
-      <div class="talk-h"><span class="talk-n">3</span><h3>Bedtime</h3><span class="talk-t">~20s</span></div>
-      <ul>
-        <li>At your bedtime it interrupts you.</li>
-        <li>Reads the day back using what you actually did.</li>
-        <li>Then goodnight — and there's nothing else in the app to look at.</li>
-      </ul>
+    <div class="beat-block">
+      <div class="beat-h"><h3>The solution</h3><span class="beat-t">0:46</span></div>
+
+      <p class="say">We're solving that with Moth. Moth is a copilot for your day. It gives you small steps — real, finishable tasks that are good for your mental health — and helps you actually do them. Then at bedtime, it recites them back to you.</p>
+      <p class="cue">Moth appears. Then a task card, then a flash of the bedtime summary.</p>
+
+      <p class="say">That last part is the whole point. Your brain doesn't keep score of the small good things you did. It keeps score of what you didn't. So Moth keeps that score, and reads it back when you need it.</p>
+
+      <p class="say">That gives you dopamine from the good source — achievement instead of a feed — and it closes the day out, so you can put the phone down and sleep.</p>
     </div>
 
-    <div class="talk">
-      <div class="talk-h"><span class="talk-n">4</span><h3>The tech, fast</h3><span class="talk-t">~20s</span></div>
-      <ul>
-        <li>All on the phone. Few megabytes, works offline, runs on a 4GB phone.</li>
-        <li>One optional cloud model writes only the goodnight.</li>
-        <li>Everything it writes gets checked — invents a number or something you didn't do, it's thrown away.</li>
-      </ul>
+    <div class="beat-block">
+      <div class="beat-h"><h3>Walkthrough</h3><span class="beat-t">1:12</span></div>
+
+      <p class="say">Setup is six questions and a bedtime.</p>
+      <p class="cue">Three quick cuts through onboarding.</p>
+
+      <p class="say">Then Moth gives you one thing at a time. Never a list — a list is something you scan, feel bad about, and close. One task, that names something physical and tells you where it ends.</p>
+      <p class="cue">Home screen, one card. Hold long enough that it can be read.</p>
+
+      <p class="say">You hit done, or not this one. Both are useful, because Moth is learning. It works out what you actually finish, at what time of day, at what energy, and stops offering the rest.</p>
+      <p class="cue">Tap Done. Tap Not this one. Then open <b>What Moth learned</b>.</p>
+
+      <p class="say">If you're already stuck scrolling, there's a button for that. Something you can start in ten seconds, instantly.</p>
+      <p class="cue">Tap <b>I'm stuck scrolling</b>. The point is that nothing loads.</p>
+
+      <p class="say">After five tasks you start writing your own, and Moth predicts what you're typing from your own history — so it's a few taps, not a paragraph at midnight.</p>
+      <p class="cue">The countdown bar, then compose — tap two suggestions, never touch the keyboard.</p>
+
+      <p class="say">Then at your bedtime, Moth interrupts you and tasks stop for the night. It reads your day back, in your words. If you got nothing done, it says so kindly, because &ldquo;you completed zero of four&rdquo; is exactly the sentence that starts the next scroll.</p>
+      <p class="cue">Set bedtime a minute ahead beforehand and it fires on camera by itself. <b>Let the summary reveal at its own pace — don't talk over it.</b></p>
+
+      <p class="say">Then goodnight. Nothing else to look at.</p>
     </div>
 
-    <div class="note tip">
-      <p><strong>Turn on airplane mode while you're demoing.</strong> Four seconds, no setup, and it's the whole privacy argument — almost nobody else at this hackathon can show their app working with the network off. Don't cut away while you do it.</p>
+    <div class="beat-block">
+      <div class="beat-h"><h3>Under the hood</h3><span class="beat-t">0:43</span></div>
+
+      <p class="say">All of that runs on your phone. The generator, the learning, the word prediction — all ours, a few megabytes, working with the network off.</p>
+      <p class="cue"><b>Turn on airplane mode here and keep tapping through tasks.</b> One unbroken take.</p>
+
+      <p class="say">We use an AI model in one place, writing the goodnight, and we don't trust it. Everything it writes is checked on the phone first. Every number has to be one we gave it, and anything in quotes has to be something you really did. If it invents an accomplishment you never had, we throw it out.</p>
+      <p class="cue">Terminal: <code>swift run mothdemo --validate</code> printing <b style="color:var(--alarm)">REJECTED — made up a number</b>.</p>
+
+      <p class="say">And if you tell Moth you're in crisis, it stops being an app about streaks and puts three phone numbers in front of you.</p>
+      <p class="cue">The crisis screen. Two seconds, then move on.</p>
     </div>
 
-    <div class="note">
-      <p><strong>Say these once each, then stop:</strong> &ldquo;behavioural activation — the action comes first, the motivation follows&rdquo; &middot; &ldquo;no dependencies, 59 tests&rdquo; &middot; &ldquo;built in 30 hours&rdquo;. Judges score the research grounding, and it takes one sentence.</p>
+    <div class="beat-block">
+      <div class="beat-h"><h3>Close</h3><span class="beat-t">0:03</span></div>
+      <p class="say">That's Moth. Small things, then sleep. Thanks for watching.</p>
+      <p class="cue">Moth closes its eyes. Cut to black.</p>
     </div>
 
     <div class="note warn">
-      <p><strong>Two things before you record.</strong> Delete the app from the simulator first or you'll launch past onboarding. And if the cloud toggle is on, hit the Render URL once to wake it — the free tier sleeps and the app will quietly fall back to its local summary.</p>
+      <p><strong>3:44 against a 4:00 cap.</strong> That's sixteen seconds of headroom, so don't ad-lib. If a take runs long, the two safest cuts are &ldquo;Then goodnight, nothing else to look at&rdquo; and the crisis line — that buys you about twenty seconds.</p>
+    </div>
+
+    <div class="note">
+      <p><strong>Record the screen silent first, then read this over it.</strong> Reading and tapping at the same time is how one take becomes thirty. Delete the app from the simulator before you start or you'll launch straight past onboarding.</p>
     </div>
   </section>
 
