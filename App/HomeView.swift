@@ -296,14 +296,18 @@ struct LearnedView: View {
                     Divider().background(Theme.inkFaint.opacity(0.3))
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("Nothing leaves this phone", systemImage: "lock.fill")
+                        Label("Everything above stays on this phone", systemImage: "lock.fill")
                             .font(Theme.label)
                             .foregroundStyle(Theme.done)
-                        Text("Moth has no network code in it at all. Your answers, your tasks and this model live in one file in the app's own storage.")
+                        Text("Your answers, your tasks and this model live in one file in the app's own storage. Moth works completely offline.")
                             .font(Theme.caption)
                             .foregroundStyle(Theme.inkFaint)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+
+                    cloudSection
+
+                    Divider().background(Theme.inkFaint.opacity(0.3))
 
                     Button("Delete everything") { confirmingErase = true }
                         .buttonStyle(LampButtonStyle(prominent: false))
@@ -325,6 +329,60 @@ struct LearnedView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Your history, your streak and everything Moth learned. This can't be undone.")
+        }
+    }
+
+    /// The opt-in, stated precisely, plus the harness's own record.
+    ///
+    /// Showing the rejection count is the point: it turns "we have guardrails"
+    /// from a claim into a number the user can watch go up.
+    private var cloudSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle(isOn: Binding(
+                get: { store.cloudEnabled },
+                set: { store.setCloudEnrichment($0) }
+            )) {
+                Text("Let a cloud model write the goodnight")
+                    .font(Theme.body)
+                    .foregroundStyle(Theme.ink)
+            }
+            .tint(Theme.lamp)
+
+            Text("Off by default. When it's on, the only thing sent is how many tasks you finished, how long they took, your streak, and the text of tasks Moth wrote. Anything you typed yourself is counted, never sent.")
+                .font(Theme.caption)
+                .foregroundStyle(Theme.inkFaint)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("It only writes the wording. The numbers you see are always computed on this phone, and anything it writes is checked before you see it — if it invents a number, quotes something you didn't do, or gets the tone wrong, it's thrown away and Moth's own words are used instead.")
+                .font(Theme.caption)
+                .foregroundStyle(Theme.inkFaint)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if store.enrichmentAccepted + store.enrichmentRejected > 0 {
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack {
+                        Text("Accepted \(store.enrichmentAccepted)")
+                            .foregroundStyle(Theme.done)
+                        Text("·").foregroundStyle(Theme.inkFaint)
+                        Text("Rejected \(store.enrichmentRejected)")
+                            .foregroundStyle(store.enrichmentRejected > 0
+                                             ? Theme.alarm : Theme.inkFaint)
+                    }
+                    .font(Theme.caption)
+
+                    if let reason = store.lastRejection {
+                        Text("Last one \(reason.displayName).")
+                            .font(Theme.caption)
+                            .foregroundStyle(Theme.inkFaint)
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Theme.nightCard)
+                )
+            }
         }
     }
 

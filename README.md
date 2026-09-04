@@ -93,14 +93,81 @@ rather than a failure state.
 on every free-text field. If it trips, the app stops being about streaks and
 puts three phone numbers on screen.
 
+## The one place a cloud model earns its place
+
+Everything above runs on the phone. There is exactly one optional exception,
+and the reasoning behind where we drew the line is most of the point.
+
+A cloud model is **worse** than the local engine at choosing what to offer (the
+bandit learns from what you actually did; a model would be guessing), at
+setting difficulty, and at crisis screening (you want that deterministic, not a
+model's judgement). And the rescue button has to answer in under a tenth of a
+second — a network round-trip at 11pm on bad wifi is precisely when somebody
+gives up and reopens the feed.
+
+It is **better** at exactly one thing: writing the goodnight. That is the
+emotional payload of the app, it is the one screen where a two-second wait is
+fine, and templates are the weakest part of what we built.
+
+So: **the bedtime summary can optionally be written by Claude, and nothing
+else.** It is off by default.
+
+### The harness
+
+The model is treated as an unreliable narrator that is never given the benefit
+of the doubt. `Harness` in `Sources/MothEngine/Enrichment.swift` re-validates
+every response **on the device**, after the server, before a word reaches a
+screen. Anything that fails any check is discarded whole — there is no repair
+step and no partial acceptance, because a half-trusted summary is worse than a
+template.
+
+The two checks that matter most:
+
+- **Every number must be one we supplied.** A model saying "you did 8 things
+  today" when you did 3 is rejected. This is the anti-hallucination gate, and
+  it is the only reason a cloud-written summary can be trusted at all.
+- **Every quotation must be a task that really happened.** A model inventing a
+  plausible, kind-sounding accomplishment is the single worst failure this app
+  could have, and it is the one an LLM is most likely to produce.
+
+Plus: no invented praise, no exclamation marks, no advice, no assigning
+tomorrow's work, no clinical content, no links, and the crisis screen runs over
+the model's output too.
+
+**The model only ever writes prose.** The counts, the minutes, the streak and
+the highlight list are always the local engine's numbers, merged in after
+validation. Even a fully validated candidate never gets to tell you what you
+did.
+
+`Tests/MothEngineTests/HarnessTests.swift` fires 27 adversarial outputs at it —
+assistant preamble, fabricated counts, invented accomplishments, "amazing work",
+bedtime advice, a suggestion to go scroll Instagram — and asserts each is caught
+for the right reason.
+
+### What is sent, and what cannot be
+
+Privacy here is enforced by the type system, not by discipline.
+`EnrichmentRequest` is a narrow struct with no field for your journal, your
+mood history, the bandit's posteriors, or anything you typed. No future edit to
+the networking layer can leak them by accident; someone would have to add a
+field in a diff a human reviews.
+
+Tasks **you** wrote are the most personal text in the app, so they are counted
+and never sent. There is a test asserting the word "sister" cannot reach the
+wire.
+
 ## Responsible AI
 
-- **There is no network code in the app.** Not "we promise not to send your
-  data" — there is no networking layer in the binary to send it with. Grep for
-  `URLSession`; there are no hits.
-- **The model is legible.** A screen in the app shows you exactly what Moth
-  inferred about you and how much evidence each belief rests on. Personalise
-  someone and you owe them the ability to see it.
+- **It works completely offline.** The cloud path is opt-in, off by default,
+  and additive. If the proxy is down, slow, or unreachable, the app behaves
+  exactly as it does without it and the user is never shown an error — from
+  their side nothing went wrong.
+- **The guardrail is visible.** The app shows you how many model responses the
+  harness accepted, how many it threw away, and why it threw away the last one.
+  A guardrail whose hit rate nobody watches is decoration.
+- **The model is legible.** A screen shows you exactly what Moth inferred about
+  you and how much evidence each belief rests on. Personalise someone and you
+  owe them the ability to see it.
 - **Deletion is real.** All state is one JSON file. "Delete everything" unlinks
   it.
 - **No dark patterns.** No infinite feed, no variable-ratio rewards, no loss
@@ -131,13 +198,27 @@ To run on a physical device, set your team under
 tests anywhere Swift runs, Linux included:
 
 ```bash
-swift test          # 22 tests
+swift test          # 53 tests
 swift run mothdemo  # drives a full simulated day through the engine
 ```
 
 `mothdemo` walks a low-energy evening, a doomscroll rescue, the bedtime
 wind-down gate, the type-ahead, what the bandit learned, and the summary — all
 as text. It is the fastest way to see what the engine does.
+
+### The enrichment proxy (optional)
+
+`server/` is a small Express service that holds the Anthropic API key an iOS
+app cannot. Deploy to Render with the included `render.yaml`, set
+`ANTHROPIC_API_KEY` in the dashboard, and point
+`EnrichmentClient.defaultEndpoint` at it.
+
+**The app does not need it.** With the toggle off — which is the default — it
+is never contacted.
+
+```bash
+cd server && npm install && npm run typecheck
+```
 
 ## Layout
 
@@ -146,6 +227,7 @@ Sources/MothEngine/   the engine. No UIKit, no SwiftUI, no network.
 App/                  the SwiftUI app.
 Tests/                22 tests, including regressions for output quality.
 Sources/mothdemo/     headless driver.
+server/               optional enrichment proxy (Node, deploys to Render).
 Moth.xcodeproj        no dependencies.
 Package.swift         same engine sources, for Linux/CI.
 ```

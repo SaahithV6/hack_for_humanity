@@ -25,6 +25,7 @@ final class Store: ObservableObject {
 
     private var engine: Engine
     private let storeURL: URL
+    private let enrichment = EnrichmentClient()
 
     // MARK: - Lifecycle
 
@@ -66,6 +67,10 @@ final class Store: ObservableObject {
     var intake: Intake? { engine.state.intake }
     var hasAcknowledgedCrisis: Bool { engine.state.acknowledgedCrisisScreen }
     var lifetimeCompleted: Int { engine.state.journal.lifetimeCompleted }
+    var cloudEnabled: Bool { engine.state.cloudEnrichmentEnabled }
+    var enrichmentAccepted: Int { engine.state.enrichmentAccepted }
+    var enrichmentRejected: Int { engine.state.enrichmentRejected }
+    var lastRejection: RejectionReason? { engine.state.lastRejection }
     var grooveRemaining: Int {
         max(0, Engine.grooveThreshold - engine.state.journal.lifetimeCompleted)
     }
@@ -176,6 +181,27 @@ final class Store: ObservableObject {
     // MARK: - Bedtime
 
     func bedtimeSummary() -> Summary { engine.bedtimeSummary() }
+
+    func setCloudEnrichment(_ enabled: Bool) {
+        engine.setCloudEnrichment(enabled)
+        save()
+        objectWillChange.send()
+    }
+
+    /// Tries to upgrade the prose of an already-displayed summary.
+    ///
+    /// Returns nil for every failure -- disabled, offline, slow, refused, or
+    /// rejected by the harness -- and the caller simply keeps what is already
+    /// on screen. There is no error path to the user because from their side
+    /// nothing has gone wrong.
+    func enrichedSummary(upgrading local: Summary) async -> Summary? {
+        guard engine.state.cloudEnrichmentEnabled else { return nil }
+        let request = engine.enrichmentRequest(energy: energy, mood: mood)
+        guard let candidate = try? await enrichment.summary(for: request) else { return nil }
+        let merged = engine.accept(candidate, request: request, localFallback: local)
+        save()
+        return merged
+    }
 
     func finishDay() {
         engine.completeWindDown()

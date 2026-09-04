@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: moth-enrichment
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: server
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      # Set this in the Render dashboard. It is the whole reason this service
+      # exists: an iOS app cannot hold an API key, because anyone can extract
+      # it from the bundle.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: NODE_VERSION
+        value: "22"

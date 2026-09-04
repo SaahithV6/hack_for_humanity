@@ -86,9 +86,17 @@ struct BedtimeView: View {
                 .padding(.bottom, 30)
             }
         }
-        .onAppear {
-            summary = store.bedtimeSummary()
+        .task {
+            let local = store.bedtimeSummary()
+            summary = local
             reveal()
+            // Runs only if the user opted in. The local summary is already on
+            // screen and already revealing; if a better-written one arrives
+            // before the reveal finishes, it cross-fades in. If it doesn't,
+            // nothing happens and nobody is told.
+            if let better = await store.enrichedSummary(upgrading: local) {
+                withAnimation(.easeInOut(duration: 0.45)) { summary = better }
+            }
         }
     }
 

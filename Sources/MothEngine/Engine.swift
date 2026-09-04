@@ -15,6 +15,17 @@ public struct MothState: Codable, Sendable {
     /// them behind it on every launch.
     public var acknowledgedCrisisScreen: Bool
 
+    // MARK: Optional cloud enrichment
+    /// Off unless the user turns it on, and the app is fully functional
+    /// without it.
+    public var cloudEnrichmentEnabled: Bool
+    /// How often the harness has let a model's writing through, and how often
+    /// it has thrown it away. Surfaced in the app: a guardrail whose hit rate
+    /// nobody looks at is decoration.
+    public var enrichmentAccepted: Int
+    public var enrichmentRejected: Int
+    public var lastRejection: RejectionReason?
+
     public init(
         intake: Intake? = nil,
         bandit: ArchetypeBandit = ArchetypeBandit(),
@@ -22,7 +33,11 @@ public struct MothState: Codable, Sendable {
         journal: Journal = Journal(),
         predictor: Predictor = Predictor(),
         lastDecayDay: Int = 0,
-        acknowledgedCrisisScreen: Bool = false
+        acknowledgedCrisisScreen: Bool = false,
+        cloudEnrichmentEnabled: Bool = false,
+        enrichmentAccepted: Int = 0,
+        enrichmentRejected: Int = 0,
+        lastRejection: RejectionReason? = nil
     ) {
         self.intake = intake
         self.bandit = bandit
@@ -31,6 +46,33 @@ public struct MothState: Codable, Sendable {
         self.predictor = predictor
         self.lastDecayDay = lastDecayDay
         self.acknowledgedCrisisScreen = acknowledgedCrisisScreen
+        self.cloudEnrichmentEnabled = cloudEnrichmentEnabled
+        self.enrichmentAccepted = enrichmentAccepted
+        self.enrichmentRejected = enrichmentRejected
+        self.lastRejection = lastRejection
+    }
+
+    /// Hand-written so that a state file saved by an older build still loads.
+    ///
+    /// The synthesised decoder throws on any missing key, which would silently
+    /// wipe somebody's streak and everything the bandit learned the first time
+    /// we shipped a new field. Every field here is optional-with-default on the
+    /// way in, and new fields must be added the same way.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        intake = try c.decodeIfPresent(Intake.self, forKey: .intake)
+        bandit = try c.decodeIfPresent(ArchetypeBandit.self, forKey: .bandit) ?? ArchetypeBandit()
+        ladder = try c.decodeIfPresent(Ladder.self, forKey: .ladder) ?? Ladder()
+        journal = try c.decodeIfPresent(Journal.self, forKey: .journal) ?? Journal()
+        predictor = try c.decodeIfPresent(Predictor.self, forKey: .predictor) ?? Predictor()
+        lastDecayDay = try c.decodeIfPresent(Int.self, forKey: .lastDecayDay) ?? 0
+        acknowledgedCrisisScreen =
+            try c.decodeIfPresent(Bool.self, forKey: .acknowledgedCrisisScreen) ?? false
+        cloudEnrichmentEnabled =
+            try c.decodeIfPresent(Bool.self, forKey: .cloudEnrichmentEnabled) ?? false
+        enrichmentAccepted = try c.decodeIfPresent(Int.self, forKey: .enrichmentAccepted) ?? 0
+        enrichmentRejected = try c.decodeIfPresent(Int.self, forKey: .enrichmentRejected) ?? 0
+        lastRejection = try c.decodeIfPresent(RejectionReason.self, forKey: .lastRejection)
     }
 }
 
@@ -297,6 +339,55 @@ public final class Engine {
             bucket: bucket,
             rng: &rng
         )
+    }
+
+    // MARK: - Enrichment
+
+    /// Builds the narrow request the proxy is allowed to see. Nothing else in
+    /// the app may construct one.
+    public func enrichmentRequest(energy: Int, mood: Int) -> EnrichmentRequest {
+        let ctx = context(energy: energy, mood: mood)
+        return .summary(
+            day: state.journal.record(for: today),
+            streak: state.journal.streak(endingAt: today),
+            context: ctx
+        )
+    }
+
+    /// Runs a model's summary through the harness and, only if it survives,
+    /// merges it onto the locally computed one.
+    ///
+    /// The counts, the minutes, the streak and the highlight list are always
+    /// the local engine's -- the model is allowed to write the prose and
+    /// nothing else. Even a fully validated candidate never gets to tell the
+    /// user what they did.
+    public func accept(
+        _ candidate: SummaryCandidate,
+        request: EnrichmentRequest,
+        localFallback local: Summary
+    ) -> Summary? {
+        switch Harness.validate(candidate, against: request) {
+        case .failure(let reason):
+            state.enrichmentRejected += 1
+            state.lastRejection = reason
+            return nil
+        case .success(let safe):
+            state.enrichmentAccepted += 1
+            state.lastRejection = nil
+            return Summary(
+                greeting: safe.greeting,
+                body: safe.body,
+                highlights: local.highlights,
+                completedCount: local.completedCount,
+                minutes: local.minutes,
+                streak: local.streak,
+                closing: safe.closing
+            )
+        }
+    }
+
+    public func setCloudEnrichment(_ enabled: Bool) {
+        state.cloudEnrichmentEnabled = enabled
     }
 
     public func completeWindDown() {
