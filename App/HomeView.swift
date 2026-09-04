@@ -37,6 +37,9 @@ struct HomeView: View {
                         removal: .opacity
                     ))
                     .id(task.id)
+            } else if store.isBedtime {
+                dayOverCard
+                    .padding(.horizontal, Theme.gutter)
             } else {
                 emptyCard
                     .padding(.horizontal, Theme.gutter)
@@ -132,6 +135,7 @@ struct HomeView: View {
 
     private var speechText: String {
         if store.lastCompleted != nil { return "There it is." }
+        if store.isBedtime { return "That's enough for today." }
         if store.minutesToBedtime <= 45 { return "Winding down. Small things only." }
         if store.todayCompleted == 0 { return "Let's start with something small." }
         if store.phase == .groove { return "Want one from me, or one of your own?" }
@@ -195,6 +199,26 @@ struct HomeView: View {
         .background(
             RoundedRectangle(cornerRadius: Theme.corner, style: .continuous)
                 .fill(Theme.done.opacity(0.10))
+        )
+    }
+
+    /// Shown once bedtime has arrived. There is deliberately nothing to do
+    /// here except read the day back -- an app that interrupts a doomscroll
+    /// and then offers somewhere else to go has not helped.
+    private var dayOverCard: some View {
+        VStack(spacing: 12) {
+            Text("That's the day.")
+                .font(Theme.task)
+                .foregroundStyle(Theme.ink)
+            Text("No more tasks tonight.")
+                .font(Theme.body)
+                .foregroundStyle(Theme.inkSoft)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(30)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.corner, style: .continuous)
+                .fill(Theme.nightCard)
         )
     }
 
@@ -263,6 +287,9 @@ struct HomeView: View {
 
                 rescueButton
             }
+        } else if store.isBedtime {
+            Button("See how the day went") { store.showingBedtime = true }
+                .buttonStyle(LampButtonStyle())
         } else {
             Button("Ask Moth for something") { store.nextTask() }
                 .buttonStyle(LampButtonStyle())

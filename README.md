@@ -36,9 +36,11 @@ to you so bed stops being the place you avoid.
    own unlocks — and the predictor means it costs a few taps instead of a
    paragraph. A progress bar counts down to it from the start, so the
    scaffolding is visibly temporary rather than a surprise.
-6. **At bedtime it interrupts you** and reads your day back, in your own words,
-   using things that actually happened. Then it says goodnight and there is
-   nothing else in the app to look at.
+6. **At bedtime it interrupts you** — whether you're elsewhere on your phone or
+   sitting in Moth ticking off one more task — and reads your day back, in your
+   own words, using things that actually happened. Task generation stops: past
+   bedtime there is nothing to do but read the day and go to sleep. Then it says
+   goodnight, and there is nothing else in the app to look at.
 
 Every one of those steps runs on the phone.
 
