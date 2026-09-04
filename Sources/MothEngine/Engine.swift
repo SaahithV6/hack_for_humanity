@@ -100,10 +100,14 @@ public final class Engine {
     /// Injected so tests can pin it; the app passes Date.init.
     private let clock: () -> Date
 
-    /// Completed tasks required before self-authoring unlocks. Eight is about
-    /// a week of light use -- long enough that the habit has some traction,
-    /// short enough that motivated users aren't held back.
-    public static let grooveThreshold = 8
+    /// Tasks of Moth's own that must be completed before self-authoring
+    /// unlocks.
+    ///
+    /// Five is a few evenings. The scaffolding has to last long enough that
+    /// the person has felt the loop work, and no longer -- behavioural
+    /// activation is aiming at them scheduling their own activity, so holding
+    /// the pen past that point works against the whole point of the app.
+    public static let grooveThreshold = 5
 
     public init(
         state: MothState = MothState(),
@@ -124,7 +128,8 @@ public final class Engine {
 
     public var phase: Phase {
         guard state.intake != nil else { return .onboarding }
-        return state.journal.lifetimeCompleted >= Engine.grooveThreshold ? .groove : .guided
+        return state.journal.lifetimeEngineCompleted >= Engine.grooveThreshold
+            ? .groove : .guided
     }
 
     public var riskLevel: RiskLevel {

@@ -96,10 +96,20 @@ public struct Journal: Codable, Sendable {
         return Double(done) / Double(resolved)
     }
 
-    /// Total completed tasks ever. Drives the "groove" threshold at which the
-    /// app starts inviting the user to write their own.
+    /// Total completed tasks ever, from any source.
     public var lifetimeCompleted: Int {
         days.values.reduce(0) { $0 + $1.completedCount }
+    }
+
+    /// Completed tasks that Moth generated.
+    ///
+    /// This is what gates self-authoring, rather than the total: the threshold
+    /// means "you have done N of mine", so tasks the user wrote themselves must
+    /// not count toward earning the right to write their own.
+    public var lifetimeEngineCompleted: Int {
+        days.values.reduce(0) { total, day in
+            total + day.completed.filter { $0.origin == .engine }.count
+        }
     }
 
     public var lifetimeSelfWritten: Int {

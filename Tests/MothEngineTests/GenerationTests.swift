@@ -223,16 +223,50 @@ final class GenerationTests: XCTestCase {
 
     // MARK: - Phase progression
 
-    func testGrooveUnlocksAfterEnoughCompletions() {
+    func testGrooveUnlocksAfterFiveOfMothsOwnTasks() {
         let e = engine(at: date(20, 0))
+        XCTAssertEqual(Engine.grooveThreshold, 5)
         XCTAssertEqual(e.phase, .guided)
         let ctx = e.context(energy: 4, mood: 4)
-        for seed in UInt64(0)..<UInt64(Engine.grooveThreshold) {
+
+        for seed in UInt64(0)..<UInt64(Engine.grooveThreshold - 1) {
             if let task = e.nextTask(context: ctx, seed: seed) {
                 e.resolve(task, outcome: .done, context: ctx)
             }
         }
+        XCTAssertEqual(e.phase, .guided, "unlocked one task early")
+
+        if let last = e.nextTask(context: ctx, seed: 99) {
+            e.resolve(last, outcome: .done, context: ctx)
+        }
         XCTAssertEqual(e.phase, .groove)
+    }
+
+    func testSkippedTasksDoNotCountTowardTheUnlock() {
+        let e = engine(at: date(20, 0))
+        let ctx = e.context(energy: 4, mood: 4)
+        for seed in UInt64(0)..<20 {
+            if let task = e.nextTask(context: ctx, seed: seed) {
+                e.resolve(task, outcome: .skipped, context: ctx)
+            }
+        }
+        XCTAssertEqual(e.phase, .guided, "skipping should not earn self-authoring")
+    }
+
+    func testUserWrittenTasksDoNotCountTowardTheUnlock() {
+        // The threshold means "you have done N of mine", so a user's own tasks
+        // must not be what earns them the right to write their own.
+        let e = engine(at: date(20, 0))
+        let ctx = e.context(energy: 4, mood: 4)
+        for _ in 0..<10 {
+            if case .success(let task) = e.addUserTask(text: "Water the plants",
+                                                       archetype: .tend) {
+                e.resolve(task, outcome: .done, context: ctx)
+            }
+        }
+        XCTAssertGreaterThanOrEqual(e.state.journal.lifetimeCompleted, 10)
+        XCTAssertEqual(e.state.journal.lifetimeEngineCompleted, 0)
+        XCTAssertEqual(e.phase, .guided)
     }
 
     // MARK: - Output quality regressions

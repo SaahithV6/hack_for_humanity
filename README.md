@@ -32,8 +32,10 @@ to you so bed stops being the place you avoid.
    start in ten seconds.
 4. **It learns.** Moth works out which kinds of things *you* actually do, at
    which times, at what energy — and stops offering the rest.
-5. **You take over.** After about a week, Moth invites you to write your own
-   tasks, and predicts them so it costs a few taps instead of a paragraph.
+5. **You take over.** After you finish **five of Moth's tasks**, writing your
+   own unlocks — and the predictor means it costs a few taps instead of a
+   paragraph. A progress bar counts down to it from the start, so the
+   scaffolding is visibly temporary rather than a surprise.
 6. **At bedtime it interrupts you** and reads your day back, in your own words,
    using things that actually happened. Then it says goodnight and there is
    nothing else in the app to look at.
@@ -56,7 +58,7 @@ That maps onto the product exactly:
 | Graded task assignment | The `Ladder` — starts at one minute, climbs only as fast as you do |
 | Activity monitoring | The `Journal`, shown back to you at bedtime |
 | Spread across life domains | Seven archetypes: Move, Tend, Connect, Create, Ground, Nourish, Rest |
-| Hand scheduling back to the person | The `groove` phase, where you write your own |
+| Hand scheduling back to the person | The `groove` phase, unlocked after five completions |
 
 ## The engine
 
@@ -214,6 +216,9 @@ tests anywhere Swift runs, Linux included:
 swift test          # 57 tests
 swift run mothdemo  # drives a full simulated day through the engine
 ```
+
+To reach the write-your-own screen in the app, complete five tasks — tap
+**Done** five times.
 
 `mothdemo` walks a low-energy evening, a doomscroll rescue, the bedtime
 wind-down gate, the type-ahead, what the bandit learned, and the summary — all

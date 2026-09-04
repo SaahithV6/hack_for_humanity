@@ -42,6 +42,12 @@ struct HomeView: View {
                     .padding(.horizontal, Theme.gutter)
             }
 
+            if store.phase == .guided, store.grooveRemaining > 0, store.lifetimeCompleted > 0 {
+                grooveHint
+                    .padding(.horizontal, Theme.gutter)
+                    .padding(.top, 14)
+            }
+
             Spacer(minLength: 12)
 
             actions
@@ -129,6 +135,7 @@ struct HomeView: View {
         if store.minutesToBedtime <= 45 { return "Winding down. Small things only." }
         if store.todayCompleted == 0 { return "Let's start with something small." }
         if store.phase == .groove { return "Want one from me, or one of your own?" }
+        if store.grooveRemaining == 1 { return "One more and you're writing these yourself." }
         return "Here's the next one."
     }
 
@@ -202,6 +209,29 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(30)
+    }
+
+    /// Counts down to self-authoring.
+    ///
+    /// Shown rather than hidden because the unlock is the point of the app --
+    /// somebody who knows they are three away from writing their own has a
+    /// reason to do the next one, and it frames the scaffolding as temporary
+    /// from the start instead of springing on them.
+    private var grooveHint: some View {
+        HStack(spacing: 8) {
+            ForEach(0..<Engine.grooveThreshold, id: \.self) { index in
+                Capsule()
+                    .fill(index < store.engineCompleted ? Theme.lamp : Theme.inkFaint.opacity(0.25))
+                    .frame(height: 3)
+            }
+            Text(store.grooveRemaining == 1
+                 ? "1 more, then you write your own"
+                 : "\(store.grooveRemaining) more, then you write your own")
+                .font(Theme.caption)
+                .foregroundStyle(Theme.inkFaint)
+                .fixedSize()
+        }
+        .animation(.easeOut(duration: 0.3), value: store.engineCompleted)
     }
 
     // MARK: Actions

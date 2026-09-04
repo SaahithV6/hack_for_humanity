@@ -81,12 +81,14 @@ final class Store: ObservableObject {
     var intake: Intake? { engine.state.intake }
     var hasAcknowledgedCrisis: Bool { engine.state.acknowledgedCrisisScreen }
     var lifetimeCompleted: Int { engine.state.journal.lifetimeCompleted }
+    var engineCompleted: Int { engine.state.journal.lifetimeEngineCompleted }
     var cloudEnabled: Bool { engine.state.cloudEnrichmentEnabled }
     var enrichmentAccepted: Int { engine.state.enrichmentAccepted }
     var enrichmentRejected: Int { engine.state.enrichmentRejected }
     var lastRejection: RejectionReason? { engine.state.lastRejection }
+    /// How many more of Moth's tasks before writing your own unlocks.
     var grooveRemaining: Int {
-        max(0, Engine.grooveThreshold - engine.state.journal.lifetimeCompleted)
+        max(0, Engine.grooveThreshold - engine.state.journal.lifetimeEngineCompleted)
     }
 
     /// One row of "what Moth has figured out". A named type rather than a
