@@ -43,201 +43,140 @@ Markdown.)*
 
 ### Inspiration
 
-Every one of us has lain in bed at 1am, not enjoying the feed, and unable to
-put it down. The framing we kept hearing — that this is a willpower problem —
-never matched the experience.
+Every one of us has lain in bed at 1am, not enjoying the feed, unable to put the
+phone down. Calling that a willpower problem never matched the experience.
 
-What actually happens is a loop with a shape. Stress makes the feed attractive.
-The feed delivers unpredictable small rewards, which is the same reinforcement
-schedule a slot machine uses. And every hour spent there, the thing you were
-avoiding gets slightly worse — so the stress rises, and the feed becomes more
-attractive still. Screen-time blockers attack only the last link in that chain.
-They tell you no. They don't touch the reason you opened it, which is why most
-people delete them inside a week.
+What happens is a loop. Stress makes the feed attractive. The feed pays out
+small unpredictable rewards on the schedule a slot machine uses. Every hour you
+spend there, the thing you were avoiding gets worse, so the stress rises and the
+feed gets more attractive. Screen-time blockers cut the last link in that chain
+and leave the first one alone, which is why people uninstall them inside a week.
 
-The loop also runs at the worst possible hour, and we think that part is not a
-coincidence. Going to bed means lying in the dark with your own day. If you
-can't point to anything in it, the day defaults to *I did nothing again* — so
-you don't go to bed. You scroll, so you don't have to arrive at that thought.
-
-Moth is our attempt at the other approach: give the dopamine somewhere else, in
-small real actions, and then **narrate the day back** so bed stops being the
-thing you're avoiding.
+The loop runs hardest at night. Going to bed means lying in the dark with your
+own day, and a day you cannot account for defaults to "I did nothing again." So
+you scroll instead of sleeping.
 
 ### What it does
 
-- **Six questions.** A PHQ-2-style screen and a bedtime. That's the setup.
-- **One task at a time.** Never a list. A list is something you scan, compare,
-  and pick nothing from — the same paralysis the feed causes — and a list of
-  undone tasks is a list of small failures.
-- **"I'm stuck scrolling."** One button, which hands back something you can
-  start in ten seconds.
-- **It learns** which kinds of things you actually finish, at which times and
-  at what energy, and stops offering the rest.
-- **You take over.** After five of Moth's tasks, writing your own unlocks — and
-  it predicts them from your own history, so it costs a few taps rather than a
-  paragraph at midnight.
-- **At bedtime it interrupts you**, stops generating tasks, and reads your day
-  back using things that actually happened. Then it says goodnight, and there
-  is nothing else in the app to look at.
+Setup is six questions and a bedtime. After that, Moth gives you one task at a
+time, never a list, because a list is something you scan and close. Each task
+names a physical action and says where it ends.
 
-It is grounded in **behavioural activation**, an established treatment for
-depression that inverts the usual intuition: you don't wait until you feel like
-it — the action comes first and the motivation follows. Each part of the app
-maps onto a piece of that protocol, including handing scheduling back to the
-person, which is why the app is designed to get out of your way.
+You mark it done or skip it, and both answers teach the model. It learns what
+you finish at each time of day and energy level, then stops offering the rest. A
+separate button hands you a ten-second task when you are already scrolling.
+After five tasks, you start writing your own, and word prediction from your
+history turns that into a few taps.
+
+At your bedtime Moth interrupts you, stops generating tasks, and reads the day
+back using what you actually did. Then it says goodnight, and the app has
+nothing else in it to look at.
+
+The design follows behavioural activation, an established treatment for
+depression in which action precedes motivation rather than following it. The
+protocol ends with the patient scheduling their own activity, which is why Moth
+hands the writing over after five tasks.
 
 ### How we built it
 
-Native SwiftUI with **no third-party dependencies** — open the project, hit Run.
-The engine is ~2,600 lines of plain Swift with no Apple-framework imports, so it
-builds and tests on Linux as well as in the app. That mattered, because most of
-it was written on a Linux machine with no Mac in the room.
+Native SwiftUI with no third-party dependencies. The engine is 2,600 lines of
+plain Swift with no Apple-framework imports, so it builds and tests on Linux as
+well as on iOS. Most of it was written on a Linux machine with no Mac available.
 
-The generator is not a wrapper around an API. It is a small model built to run
-in a few megabytes on a 4GB phone, offline.
+The generator is a probabilistic grammar of 45 sentence frames and 12 vocabulary
+slots, each gated on energy, mood, time of day and minutes to bedtime. "Step
+outside and look at the sky" is a good suggestion at 6pm and a bad one at 1am,
+and the gates encode the difference.
 
-**A context-conditioned probabilistic grammar.** 45 sentence frames and 12
-vocabulary slots, each gated on energy, mood, time of day and
-minutes-to-bedtime. "Step outside and look at the sky" is a good suggestion at
-6pm and a bad one at 1am, and the grammar knows the difference. Frames are
-weighted by how close they sit to the difficulty the ladder asked for — exact
-matches dominate, but neighbours stay in play, which stops the output
-collapsing onto the same handful of sentences. Repeated slots bind once per
-sentence, so *"Clear your desk. Only your desk."* names one surface.
+Selection uses Thompson sampling over seven activity domains, with a separate
+belief held per time-of-day and energy bucket. Domains we have never tried stay
+optimistic and get explored; domains you keep skipping recede. Evidence decays
+daily, giving it a half-life near five weeks. We learn this instead of asking,
+because people who are depressed routinely mispredict what will help them.
 
-**Thompson sampling over seven activity domains.** Each domain keeps a running
-belief about how likely you are to actually complete it, held separately for
-each combination of time-of-day and energy level. To pick what to offer, we
-draw a sample from each of those beliefs and take the winner — so domains we've
-never tried stay optimistic and get explored, while ones you keep skipping
-quietly recede. It's a Beta-Bernoulli model, which is the natural fit because
-the outcome is binary: the task got done or it didn't. It costs two numbers per
-domain, which matters when the whole user model has to stay small.
+Difficulty tracking is deliberately asymmetric: a skip costs 2.5 times what a
+completion gains. Aiming too low wastes one easy task. Aiming too high costs the
+user's belief that the app works, and that does not come back.
 
-Evidence decays a little every day, giving it a half-life of about five weeks,
-so who you were three months ago stops outvoting who you are now. We learn this
-rather than asking, because depressed people routinely mispredict what will
-help them.
+Type-ahead uses a backoff word model trained on the shipped corpus and on your
+own writing, so it is useful on day one and sounds like you within a week.
 
-**An asymmetric difficulty ladder.** It climbs slowly on success and drops fast
-on a skip — the penalty for a miss is two and a half times the reward for a
-hit. That asymmetry is deliberate. Getting difficulty wrong downward costs one
-task that was too easy. Getting it wrong upward costs the user's belief that
-the app works, and that doesn't come back.
+One optional cloud call writes the bedtime summary, which is the only job a
+language model does better than our own code. Everything it returns is validated
+on the device against 16 rejection rules before it reaches the screen. Two of
+those carry most of the weight: every number in the summary has to be a number
+we supplied, and every quotation has to be a task that actually happened. The
+model writes prose only. Counts, minutes, streaks and highlights all come from
+the local engine. The request type has no field for your journal, your mood
+history or the model state, so a later edit to the networking layer cannot leak
+them by accident. Tasks you wrote yourself are counted and never sent.
 
-**A word-prediction model for type-ahead.** It looks at the last few words you
-typed, and if it hasn't seen that exact run before, it backs off to a shorter
-one until it finds something it recognises. Trained on the shipped corpus so
-it's useful on day one, and on your own writing so it converges on your
-vocabulary within a week. This is what turns writing a task into three taps
-instead of a paragraph at midnight.
+The whole app works with the network off, on a 4GB phone. The app also shows you
+what it has inferred about you, how many model responses the validator accepted,
+how many it threw away, and why it rejected the last one.
 
-**One optional cloud call.** A language model is *worse* than our bandit at
-choosing what to offer, worse than a constant at setting difficulty, and
-inappropriate for crisis screening. It is better at exactly one thing: writing
-warmly. So it writes the bedtime summary and nothing else — and every response
-is re-validated **on the device** before a word reaches the screen. Sixteen
-rejection reasons, of which two carry most of the weight:
-
-- **Every number must be one we supplied.** A model claiming "you did 8 things"
-  when you did 3 is discarded.
-- **Every quotation must be a task that really happened.** A model inventing a
-  plausible, kind-sounding accomplishment is the single worst failure this app
-  could have.
-
-The model only ever writes prose. The counts, minutes, streak and highlights are
-always the local engine's, merged in after validation. Privacy is structural
-rather than promised: the request type has no field for your journal, your mood
-history, or the model's posteriors, so no future edit to the networking layer
-can leak them by accident. Tasks *you* wrote are counted and never sent.
+If the intake screen or any text field indicates crisis, the app stops being
+about streaks and puts three phone numbers on the screen. That path skips the
+engine entirely.
 
 ### Challenges we ran into
 
-**Two holes in our guardrails that only a live model found.** We built the
-validator against handwritten adversarial fixtures and it passed everything.
-Then we pointed it at a real model and watched it write *"four things in
-thirteen minutes"* — spelled out. Our anti-hallucination check only scanned
-digits, so an invented count would have sailed straight through. In the other
-direction, it was rejecting correct output for saying "five" when the real task
-was *"Name five things you can see"* — punishing the model for quoting us
-accurately. Fixing both took live acceptance from 6/8 to 10/10.
+Our validator passed every handwritten adversarial fixture we wrote. Then we
+pointed it at a live model and watched it produce "four things in thirteen
+minutes", spelled out. The anti-hallucination check only scanned digits, so an
+invented count would have gone straight through. In the other direction, it was
+rejecting correct output for saying "five" when the task really was "Name five
+things you can see", which punished the model for quoting us accurately. Fixing
+both took live acceptance from 6 out of 8 to 10 out of 10.
 
-**A time bug that silently broke the whole morning.** Our "minutes until
-bedtime" figure wrapped the wrong way, so an 11pm bedtime came out as *ten hours
-past* at 9am rather than fourteen hours before. That made the bedtime screen
-fire over breakfast — and, far worse, since every grammar rule requires that
-number to be positive, the generator had *no usable frames at all* until the
-afternoon. The app would have appeared to simply stop working every morning,
-which is close to undiagnosable from a bug report.
+A time bug broke the whole morning. Our minutes-to-bedtime figure wrapped the
+wrong way, so an 11pm bedtime came out as ten hours past at 9am instead of
+fourteen hours before. The bedtime screen fired over breakfast, and because
+every grammar rule requires that number to be positive, the generator had no
+usable frames at all until the afternoon. The app would have appeared to stop
+working every morning, which is close to undiagnosable from a bug report.
 
-**Effort ceilings that didn't bind.** A test caught the engine offering a
-fifteen-minute task to someone forty minutes from bed. The ladder's target was a
-soft preference the grammar could drift past — fine most of the time, wrong
-exactly when it mattered.
+A test caught the engine offering a fifteen-minute task to somebody forty
+minutes from bed, because the difficulty target was a soft preference the
+grammar could drift past. Repeated slots inside one frame were sampling
+independently, which produced "Clear your bag. Only your nightstand."
 
-**Sentences that fell apart in the middle.** Repeated slots in one frame sampled
-independently, producing *"Clear your bag. Only your nightstand."*
-
-**Writing an iOS app from Linux.** No Mac, so no compiler for the UI layer. We
-pushed everything possible into a platform-free Swift package that builds and
-tests locally, kept the SwiftUI layer thin, and syntax-checked it with
-`swiftc -parse` — which caught six invalid string literals before they reached a
-teammate's machine. Two bugs still got through and were found on the first real
-build, including one assignment to a `private(set)` property.
-
-### Accomplishments that we're proud of
-
-**It works with the network off.** Not "we promise not to send your data" — the
-entire product functions in airplane mode, on a 4GB phone, because the generator
-is ours and it's tiny.
-
-**We used a language model in exactly one place, and we don't trust it.** The
-app shows you its own accept and reject counts and why it rejected the last one,
-because a guardrail nobody can see isn't a guardrail.
-
-**The safety gate outranks the product.** If the intake screen or any text field
-indicates crisis, the app stops being about streaks and puts three phone numbers
-on screen. Gamifying someone in distress would be actively harmful, so that path
-bypasses the engine entirely.
-
-**A zero day is not a failure state.** The summary for a day where nothing got
-done is written with as much care as any other, because *"you completed 0 of 4
-tasks"* is precisely the input that starts the next doomscroll.
-
-**63 tests**, including regressions for tone and output quality — not just
-correctness.
+Writing an iOS app from Linux meant no compiler for the UI layer. We moved
+everything we could into a platform-free Swift package that builds and tests
+locally, kept the SwiftUI layer thin, and syntax-checked it with swiftc -parse,
+which caught six invalid string literals before they reached a teammate's
+machine. Two bugs still got through and were found on the first real build.
 
 ### What we learned
 
-**Test guardrails against the thing they guard, not your imagination of it.**
-Our validator was perfect against fixtures and had two real holes the moment a
-live model touched it. Adversarial tests written by the person who wrote the
-code inherit that person's blind spots.
+Test a guardrail against the thing it guards, not against your idea of it. Ours
+was perfect against fixtures and had two real holes the moment a live model
+touched it. Adversarial tests written by the person who wrote the code inherit
+that person's blind spots.
 
-**Knowing where *not* to use a model is the design work.** It took us longer to
-decide the model should write one paragraph than it did to wire up the call.
+Deciding where a model should not go took longer than wiring up the call. A
+language model picks worse than our bandit, sets difficulty worse than a
+constant, and has no business doing crisis screening. It writes one paragraph.
 
-**Tone is a technical requirement, not copywriting polish.** For this user, at
-this hour, "Amazing work today!" makes everything else the app says
-untrustworthy — so the validator rejects it in code.
+Tone is a technical requirement here. For this user at this hour, "Amazing work
+today!" makes everything else the app says untrustworthy, so the validator
+rejects it in code.
 
-**Write the failing test first, even at 2am.** Every bug above was pinned with a
-test that reproduced it before we touched the fix. Two of them turned out to be
-different from what we'd assumed.
+We wrote the failing test first for every bug above. Two of them turned out to
+be different from what we had assumed.
 
 ### What's next for Moth
 
-**Learn the scroll, not just the tasks.** Screen Time's DeviceActivity API can
-tell us a session is running long without telling us what's in it, so Moth could
-offer the rescue before you think to ask.
+Screen Time's DeviceActivity API can report that a session is running long
+without reporting what is in it, so Moth could offer the rescue before you think
+to ask for it.
 
-**Move the summary on-device too.** Apple's Foundation Models framework would
-let newer hardware write it locally, with the heuristic engine still covering
-everything older. The validator already sits behind a protocol.
+Apple's Foundation Models framework would let newer hardware write the summary
+on-device, with the existing engine still covering older phones. The validator
+already sits behind a protocol.
 
-**Widen the corpus and localise the crisis resources**, which are US-only today.
+The crisis resources are US-only and the corpus is small. Both need widening.
 
-**Actually test the hypothesis.** Everything rests on the claim that a narrated
-day makes bed easier to arrive at. We believe it, and we'd like to find out —
-bedtime drift over a few weeks is measurable entirely on-device.
+Everything here rests on the claim that a narrated day makes bed easier to
+arrive at. Bedtime drift over a few weeks is measurable entirely on-device, and
+we would like to find out.
