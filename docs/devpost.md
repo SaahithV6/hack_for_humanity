@@ -37,7 +37,7 @@ mental-health, privacy-by-design, linux
 ## About the project
 
 *(Paste everything below into the "About the project" box. Devpost renders
-Markdown and LaTeX.)*
+Markdown.)*
 
 ---
 
@@ -98,51 +98,40 @@ The generator is not a wrapper around an API. It is a small model built to run
 in a few megabytes on a 4GB phone, offline.
 
 **A context-conditioned probabilistic grammar.** 45 sentence frames and 12
-vocabulary slots, each gated on energy, mood, time of day and minutes-to-bedtime.
-Frames are sampled with weight falling off exponentially from the difficulty the
-ladder asked for:
+vocabulary slots, each gated on energy, mood, time of day and
+minutes-to-bedtime. "Step outside and look at the sky" is a good suggestion at
+6pm and a bad one at 1am, and the grammar knows the difference. Frames are
+weighted by how close they sit to the difficulty the ladder asked for — exact
+matches dominate, but neighbours stay in play, which stops the output
+collapsing onto the same handful of sentences. Repeated slots bind once per
+sentence, so *"Clear your desk. Only your desk."* names one surface.
 
-$$w_f = w_0 \cdot e^{-0.9\,\lvert e_f - e_{\text{target}}\rvert}$$
+**Thompson sampling over seven activity domains.** Each domain keeps a running
+belief about how likely you are to actually complete it, held separately for
+each combination of time-of-day and energy level. To pick what to offer, we
+draw a sample from each of those beliefs and take the winner — so domains we've
+never tried stay optimistic and get explored, while ones you keep skipping
+quietly recede. It's a Beta-Bernoulli model, which is the natural fit because
+the outcome is binary: the task got done or it didn't. It costs two numbers per
+domain, which matters when the whole user model has to stay small.
 
-so exact matches dominate but neighbours stay live, which keeps output from
-collapsing onto a handful of sentences. Repeated slots bind once per sentence,
-so *"Clear your desk. Only your desk."* names one surface.
+Evidence decays a little every day, giving it a half-life of about five weeks,
+so who you were three months ago stops outvoting who you are now. We learn this
+rather than asking, because depressed people routinely mispredict what will
+help them.
 
-**Thompson sampling over seven activity domains.** Each domain $a$ in context
-bucket $b$ (time-of-day × energy) carries a Beta posterior over the probability
-the user completes it:
+**An asymmetric difficulty ladder.** It climbs slowly on success and drops fast
+on a skip — the penalty for a miss is two and a half times the reward for a
+hit. That asymmetry is deliberate. Getting difficulty wrong downward costs one
+task that was too easy. Getting it wrong upward costs the user's belief that
+the app works, and that doesn't come back.
 
-$$\theta_{a,b} \sim \mathrm{Beta}\!\left(\alpha_0 + s_{a,b},\ \beta_0 + f_{a,b}\right)$$
-
-We draw one sample per arm and offer the argmax. Beta–Bernoulli is the right
-conjugate pair here because the reward is binary — the task got done or it
-didn't — and it costs two doubles per arm, which matters when the whole user
-model has to stay small. Counts decay daily so old evidence fades:
-
-$$s \leftarrow \gamma^{\Delta d} s, \qquad \gamma = 0.98 \implies t_{1/2} = \frac{\ln 0.5}{\ln 0.98} \approx 34\ \text{days}$$
-
-We learn this rather than asking, because depressed people routinely mispredict
-what will help them.
-
-**An asymmetric difficulty ladder.** It climbs slowly and drops fast:
-
-$$L \leftarrow \min(L + 0.22,\ 5) \quad\text{on a completion}, \qquad L \leftarrow \max(L - 0.55,\ 1) \quad\text{on a skip}$$
-
-Getting difficulty wrong downward costs one easy task. Getting it wrong upward
-costs the user's belief that the app works — so the penalty is 2.5× the reward.
-
-**An order-3 backoff n-gram** for type-ahead, trained on the shipped corpus so
-it's useful on day one and on the user's own writing so it converges on their
-vocabulary within a week:
-
-$$S(w_i \mid w_{i-n+1}^{\,i-1}) =
-\begin{cases}
-\dfrac{c(w_{i-n+1}^{\,i})}{c(w_{i-n+1}^{\,i-1})} & \text{if } c(w_{i-n+1}^{\,i}) > 0 \\[1.4ex]
-\lambda \cdot S(w_i \mid w_{i-n+2}^{\,i-1}) & \text{otherwise}
-\end{cases}$$
-
-Stupid backoff rather than a smoothed model because it degrades gracefully,
-which matters more here than calibrated probabilities.
+**A word-prediction model for type-ahead.** It looks at the last few words you
+typed, and if it hasn't seen that exact run before, it backs off to a shorter
+one until it finds something it recognises. Trained on the shipped corpus so
+it's useful on day one, and on your own writing so it converges on your
+vocabulary within a week. This is what turns writing a task into three taps
+instead of a paragraph at midnight.
 
 **One optional cloud call.** A language model is *worse* than our bandit at
 choosing what to offer, worse than a constant at setting difficulty, and
@@ -174,13 +163,13 @@ direction, it was rejecting correct output for saying "five" when the real task
 was *"Name five things you can see"* — punishing the model for quoting us
 accurately. Fixing both took live acceptance from 6/8 to 10/10.
 
-**A time bug that silently broke the whole morning.** `minutesToBedtime` used a
-signed wrap at twelve hours, so an 11pm bedtime evaluated to $-600$ at 9am. That
-made the bedtime screen fire over breakfast — and, far worse, since every
-grammar gate requires $\text{minutesToBedtime} \geq 0$, the generator had *no
-admissible frames at all* until the afternoon. The app would have appeared to
-simply stop working every morning, which is close to undiagnosable from a bug
-report.
+**A time bug that silently broke the whole morning.** Our "minutes until
+bedtime" figure wrapped the wrong way, so an 11pm bedtime came out as *ten hours
+past* at 9am rather than fourteen hours before. That made the bedtime screen
+fire over breakfast — and, far worse, since every grammar rule requires that
+number to be positive, the generator had *no usable frames at all* until the
+afternoon. The app would have appeared to simply stop working every morning,
+which is close to undiagnosable from a bug report.
 
 **Effort ceilings that didn't bind.** A test caught the engine offering a
 fifteen-minute task to someone forty minutes from bed. The ladder's target was a
