@@ -110,6 +110,20 @@ func rule(_ title: String) {
 
 // MARK: - A day in the life
 
+// Loud on purpose. Somebody opened Package.swift in Xcode instead of
+// Moth.xcodeproj, ran this, and reasonably wondered where the app went.
+print("""
+\u{001B}[33m┌──────────────────────────────────────────────────────────────┐
+│  This is mothdemo -- the HEADLESS engine driver, not the app.│
+│  It prints a simulated day so the engine can be inspected     │
+│  without a simulator.                                         │
+│                                                               │
+│  Looking for the iPhone app? Quit this, then:                 │
+│      open Moth.xcodeproj      (NOT Package.swift)             │
+│  pick the "Moth" scheme and an iPhone simulator, and Run.     │
+└──────────────────────────────────────────────────────────────┘\u{001B}[0m
+""")
+
 rule("Onboarding")
 let intake = Intake(
     lowInterestDays: 2, lowMoodDays: 2, hasSelfHarmThoughts: false,

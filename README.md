@@ -190,11 +190,17 @@ Requires Xcode 16 or newer.
 ```bash
 git clone https://github.com/SaahithV6/hack_for_humanity
 cd hack_for_humanity
-open Moth.xcodeproj
+open Moth.xcodeproj        # <- the .xcodeproj, NOT Package.swift
 ```
 
-Pick an iPhone simulator and hit Run. There are **no package dependencies** —
-nothing to resolve, install or download.
+Pick the **Moth** scheme and an iPhone simulator, then Run. There are **no
+package dependencies** — nothing to resolve, install or download.
+
+> **Opening `Package.swift` instead gives you the engine, not the app.** Xcode
+> will build it happily and offer a `mothdemo` scheme that prints a simulated
+> day to the console — no simulator, no UI, and no previews, because the
+> package deliberately contains only `Sources/`. If you are looking at terminal
+> output, that is what happened. Open `Moth.xcodeproj`.
 
 To run on a physical device, set your team under
 *Signing & Capabilities* and change the bundle identifier.
