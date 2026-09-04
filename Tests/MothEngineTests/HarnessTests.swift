@@ -182,6 +182,71 @@ final class HarnessTests: XCTestCase {
         )
     }
 
+    func testRejectsFabricatedNumbersWrittenAsWords() {
+        // Found by running a real model: Gemini writes "four things in thirteen
+        // minutes", not "4 things in 13 minutes". A digits-only check would let
+        // an invented count straight through.
+        expectSummaryRejected(
+            body: "You moved through eight things tonight, which is a lot.",
+            .fabricatedNumber
+        )
+        expectSummaryRejected(
+            body: "That's twenty-seven days in a row now.",
+            .fabricatedNumber
+        )
+    }
+
+    func testAcceptsSuppliedNumbersWrittenAsWords() {
+        // 3 completed, 10 minutes, 3 day streak.
+        let candidate = SummaryCandidate(
+            greeting: "Evening.",
+            body: "Three things, about ten minutes. That's three days running.",
+            closing: "Put it down."
+        )
+        guard case .success = Harness.validate(candidate, against: summaryRequest) else {
+            return XCTFail("harness rejected correctly-spelled supplied numbers")
+        }
+    }
+
+    func testAcceptsNumbersThatAppearInsideTheTasksWeSent() {
+        // Found live: a real task reads "Name five things you can see", and the
+        // model restated "five". That is accurate quotation, not fabrication.
+        var day = DayRecord(id: 1)
+        day.tasks = [
+            MothTask(text: "Name five things you can see", archetype: .sense, effort: 1,
+                     estimatedMinutes: 2, origin: .engine, offeredAt: Date(), outcome: .done),
+        ]
+        let request = EnrichmentRequest.summary(day: day, streak: 1, context: ctx)
+        let candidate = SummaryCandidate(
+            greeting: "Evening.",
+            body: "You named five things you could see, which is more than nothing.",
+            closing: "Sleep."
+        )
+        guard case .success = Harness.validate(candidate, against: request) else {
+            return XCTFail("harness rejected a number it supplied inside a task")
+        }
+    }
+
+    func testStillRejectsFabricationWhenTasksContainNumbers() {
+        // The allowance above must not become a hole: a number that is in
+        // neither the totals nor the task text is still a fabrication.
+        var day = DayRecord(id: 1)
+        day.tasks = [
+            MothTask(text: "Name five things you can see", archetype: .sense, effort: 1,
+                     estimatedMinutes: 2, origin: .engine, offeredAt: Date(), outcome: .done),
+        ]
+        let request = EnrichmentRequest.summary(day: day, streak: 1, context: ctx)
+        let candidate = SummaryCandidate(
+            greeting: "Evening.",
+            body: "You named five things, and got through nineteen tasks today.",
+            closing: "Sleep."
+        )
+        switch Harness.validate(candidate, against: request) {
+        case .success: XCTFail("harness let an invented count through")
+        case .failure(let reason): XCTAssertEqual(reason, .fabricatedNumber)
+        }
+    }
+
     func testAcceptsNumbersWeActuallySupplied() {
         let candidate = SummaryCandidate(
             greeting: "Day's done.",

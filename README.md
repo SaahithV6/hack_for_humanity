@@ -139,7 +139,14 @@ the highlight list are always the local engine's numbers, merged in after
 validation. Even a fully validated candidate never gets to tell you what you
 did.
 
-`Tests/MothEngineTests/HarnessTests.swift` fires 27 adversarial outputs at it —
+Two of its rules exist because a real model broke them in testing: Gemini
+writes *"four things in thirteen minutes"* rather than digits, so a digits-only
+grounding check waved invented counts straight through; and it legitimately
+restates numbers that appear inside the tasks we sent it ("Name **five** things
+you can see"), which the first version wrongly flagged as fabrication. Both are
+now pinned by tests.
+
+`Tests/MothEngineTests/HarnessTests.swift` fires 31 adversarial outputs at it —
 assistant preamble, fabricated counts, invented accomplishments, "amazing work",
 bedtime advice, a suggestion to go scroll Instagram — and asserts each is caught
 for the right reason.
@@ -198,7 +205,7 @@ To run on a physical device, set your team under
 tests anywhere Swift runs, Linux included:
 
 ```bash
-swift test          # 53 tests
+swift test          # 57 tests
 swift run mothdemo  # drives a full simulated day through the engine
 ```
 
@@ -208,10 +215,21 @@ as text. It is the fastest way to see what the engine does.
 
 ### The enrichment proxy (optional)
 
-`server/` is a small Express service that holds the Anthropic API key an iOS
-app cannot. Deploy to Render with the included `render.yaml`, set
-`ANTHROPIC_API_KEY` in the dashboard, and point
-`EnrichmentClient.defaultEndpoint` at it.
+`server/` is a small Express service that holds the API key an iOS app cannot.
+Deploy to Render with the included `render.yaml`, set one provider key in the
+dashboard, and point `EnrichmentClient.defaultEndpoint` at it.
+
+The provider follows whichever key is present — `GEMINI_API_KEY`,
+`CEREBRAS_API_KEY`, or `ANTHROPIC_API_KEY` — because the harness is what makes
+the output safe, not the choice of model. Gemini is the default (`gemini-3.5-flash-lite`,
+about 1.2s round-trip, free tier).
+
+You can watch the harness work against a live provider:
+
+```bash
+curl -s -X POST localhost:3000/v1/enrich -H 'Content-Type: application/json' -d @request.json \
+  | swift run mothdemo --validate
+```
 
 **The app does not need it.** With the toggle off — which is the default — it
 is never contacted.

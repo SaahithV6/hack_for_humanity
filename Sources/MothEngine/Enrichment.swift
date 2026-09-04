@@ -298,6 +298,11 @@ public enum Harness {
     /// Integers the model is allowed to use: the ones we sent, plus small
     /// numbers that are almost always words about quantity rather than claims
     /// ("one thing", "a couple"). Anything else is a fabrication.
+    ///
+    /// Both digits *and* number words are checked. Models routinely write
+    /// "four things in thirteen minutes" rather than "4 things in 13 minutes",
+    /// and a digits-only check would wave that straight through -- which
+    /// defeats the entire purpose of this gate.
     private static func ungroundedNumber(in text: String, request: EnrichmentRequest) -> Int? {
         var allowed = Set<Int>([0, 1, 2])
         if let n = request.completedCount { allowed.insert(n) }
@@ -306,11 +311,66 @@ public enum Harness {
         if let n = request.selfWrittenCount { allowed.insert(n) }
         if let n = request.completedTasks?.count { allowed.insert(n) }
 
+        // Numbers that appear inside the tasks we sent are fair game. A task
+        // reading "Name five things you can see" entitles the model to say
+        // "five" -- rejecting that would be punishing it for quoting us
+        // accurately, which is the behaviour we most want to encourage.
+        for task in request.completedTasks ?? [] {
+            for token in task.split(whereSeparator: { !$0.isNumber }) {
+                if let value = Int(token) { allowed.insert(value) }
+            }
+            for value in spelledNumbers(in: task) { allowed.insert(value) }
+        }
+
         for token in text.split(whereSeparator: { !$0.isNumber }) {
             guard let value = Int(token) else { continue }
             if !allowed.contains(value) { return value }
         }
+        for value in spelledNumbers(in: text) where !allowed.contains(value) {
+            return value
+        }
         return nil
+    }
+
+    private static let units: [String: Int] = [
+        "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+        "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+        "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
+        "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18,
+        "nineteen": 19,
+    ]
+
+    private static let tens: [String: Int] = [
+        "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
+        "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+    ]
+
+    /// Resolves written-out cardinals, including hyphenated and spaced
+    /// compounds ("twenty-three", "forty five").
+    private static func spelledNumbers(in text: String) -> [Int] {
+        let words = text.lowercased()
+            .replacingOccurrences(of: "-", with: " ")
+            .split { !$0.isLetter }
+            .map(String.init)
+
+        var found: [Int] = []
+        var index = 0
+        while index < words.count {
+            let word = words[index]
+            if let ten = tens[word] {
+                // Look ahead for the unit half of a compound.
+                if index + 1 < words.count, let unit = units[words[index + 1]], unit < 10 {
+                    found.append(ten + unit)
+                    index += 2
+                    continue
+                }
+                found.append(ten)
+            } else if let unit = units[word] {
+                found.append(unit)
+            }
+            index += 1
+        }
+        return found
     }
 
     /// Every quoted span must match a real task. Matching is loose on

@@ -1,6 +1,97 @@
 import Foundation
 import MothEngine
 
+// `mothdemo --validate` reads a model's JSON summary on stdin and runs it
+// through the same harness the app uses. Handy for pointing at a live provider
+// and watching what gets caught:
+//
+//   curl -s ... | swift run mothdemo --validate
+if CommandLine.arguments.contains("--validate") {
+    let input = FileHandle.standardInput.readDataToEndOfFile()
+
+    struct Probe: Decodable {
+        let greeting: String
+        let body: String
+        let closing: String
+        // The facts the request was built from, so grounding can be checked.
+        var completedTasks: [String]?
+        var completedCount: Int?
+        var minutes: Int?
+        var streak: Int?
+        var selfWrittenCount: Int?
+    }
+
+    guard let probe = try? JSONDecoder().decode(Probe.self, from: input) else {
+        print("could not parse stdin as a summary candidate")
+        exit(2)
+    }
+
+    // Rebuild a day whose derived totals match the ones the request carried.
+    // Getting this wrong makes the harness compute a different minute count
+    // than the model was given and reject correct output -- the scaffold has
+    // to reproduce the real request exactly or it tests nothing.
+    var day = DayRecord(id: 0)
+    let engineTexts = probe.completedTasks ?? []
+    let totalCount = max(probe.completedCount ?? engineTexts.count, engineTexts.count)
+    let selfWritten = min(probe.selfWrittenCount ?? 0, max(0, totalCount - engineTexts.count))
+
+    var remainingMinutes = probe.minutes ?? 0
+    var slotsLeft = totalCount
+
+    func takeMinutes() -> Int {
+        guard slotsLeft > 0 else { return 0 }
+        let share = remainingMinutes / slotsLeft
+        remainingMinutes -= share
+        slotsLeft -= 1
+        return share
+    }
+
+    for text in engineTexts {
+        day.tasks.append(MothTask(text: text, archetype: .tend, effort: 2,
+                                  estimatedMinutes: takeMinutes(), origin: .engine,
+                                  offeredAt: Date(), outcome: .done))
+    }
+    for _ in 0..<selfWritten {
+        day.tasks.append(MothTask(text: "(user written)", archetype: .rest, effort: 1,
+                                  estimatedMinutes: takeMinutes(), origin: .user,
+                                  offeredAt: Date(), outcome: .done))
+    }
+    while day.tasks.count < totalCount {
+        day.tasks.append(MothTask(text: "(other)", archetype: .rest, effort: 1,
+                                  estimatedMinutes: takeMinutes(), origin: .engine,
+                                  offeredAt: Date(), outcome: .done))
+    }
+    // Any rounding remainder lands on the first task so the sum is exact.
+    if remainingMinutes > 0, !day.tasks.isEmpty {
+        let first = day.tasks[0]
+        day.tasks[0] = MothTask(id: first.id, frameID: first.frameID, text: first.text,
+                                archetype: first.archetype, effort: first.effort,
+                                estimatedMinutes: first.estimatedMinutes + remainingMinutes,
+                                origin: first.origin, offeredAt: first.offeredAt,
+                                outcome: .done)
+    }
+    let request = EnrichmentRequest.summary(
+        day: day,
+        streak: probe.streak ?? 0,
+        context: Context(energy: 2, mood: 2, timeBucket: .night, minutesToBedtime: 5)
+    )
+    let candidate = SummaryCandidate(greeting: probe.greeting, body: probe.body,
+                                     closing: probe.closing)
+
+    switch Harness.validate(candidate, against: request) {
+    case .success:
+        print("\u{001B}[32mACCEPTED\u{001B}[0m")
+        print("  \(probe.greeting)")
+        print("  \(probe.body)")
+        print("  \(probe.closing)")
+        exit(0)
+    case .failure(let reason):
+        print("\u{001B}[31mREJECTED\u{001B}[0m  \(reason.rawValue) -- \(reason.displayName)")
+        print("  \(probe.body)")
+        exit(1)
+    }
+}
+
 // A headless driver for the engine. It exists so the generator can be
 // inspected and demoed without a simulator -- useful on Linux, and useful for
 // showing that the whole thing is deterministic and offline.

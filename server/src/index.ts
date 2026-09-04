@@ -29,22 +29,48 @@ app.use(express.json({ limit: "16kb" }));
  *
  * Selected by whichever key is present; PROVIDER overrides.
  */
-type Provider = "anthropic" | "cerebras";
+type Provider = "anthropic" | "gemini" | "cerebras";
 
+/**
+ * Everything except Anthropic speaks the OpenAI chat-completions shape, so
+ * they share one code path and differ only in these three fields.
+ *
+ * `maxTokensField` exists because the two endpoints disagree about the name:
+ * Cerebras wants `max_completion_tokens`, Gemini's compatibility layer wants
+ * `max_tokens`. Sending the wrong one is a 400, so it is stated per provider
+ * rather than guessed.
+ */
+const OPENAI_COMPATIBLE = {
+  gemini: {
+    url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    envKey: "GEMINI_API_KEY",
+    defaultModel: "gemini-3.5-flash-lite",
+    maxTokensField: "max_tokens",
+  },
+  cerebras: {
+    url: "https://api.cerebras.ai/v1/chat/completions",
+    envKey: "CEREBRAS_API_KEY",
+    defaultModel: "gpt-oss-120b",
+    maxTokensField: "max_completion_tokens",
+  },
+} as const;
+
+/** Whichever key is present wins; PROVIDER overrides. */
 const provider: Provider =
   (process.env.PROVIDER as Provider | undefined) ??
-  (process.env.CEREBRAS_API_KEY ? "cerebras" : "anthropic");
+  (process.env.GEMINI_API_KEY
+    ? "gemini"
+    : process.env.CEREBRAS_API_KEY
+      ? "cerebras"
+      : "anthropic");
 
 // Constructed lazily: the Anthropic client throws at construction when no key
-// is present, which would take the whole service down on a Cerebras deploy.
+// is present, which would take the whole service down on a Gemini deploy.
 let anthropic: Anthropic | null = null;
 function anthropicClient(): Anthropic {
   if (!anthropic) anthropic = new Anthropic();
   return anthropic;
 }
-
-const CEREBRAS_MODEL = process.env.CEREBRAS_MODEL ?? "gpt-oss-120b";
-const CEREBRAS_URL = "https://api.cerebras.ai/v1/chat/completions";
 
 /** Deliberately small. Anything not named here is rejected, not ignored. */
 const EnrichmentRequestSchema = z
@@ -166,24 +192,36 @@ Return a short greeting, the body, and a closing line that sends them to sleep.
 `.trim();
 }
 
-// MARK: - Cerebras
+// MARK: - OpenAI-compatible providers
 
 /**
- * Cerebras speaks the OpenAI chat-completions shape. We ask for JSON in the
- * prompt and parse defensively rather than relying on a structured-output
- * feature, because a 400 from an unsupported parameter would be a hard failure
- * where a malformed body is merely a fallback.
+ * Calls any OpenAI-shaped chat-completions endpoint.
+ *
+ * We ask for JSON in the prompt and parse defensively rather than relying on a
+ * structured-output parameter, because an unsupported parameter is a hard 400
+ * across every provider, whereas a slightly malformed body is recoverable and,
+ * failing that, just means the app keeps its local summary.
  */
-async function cerebras(system: string, user: string): Promise<unknown> {
-  const response = await fetch(CEREBRAS_URL, {
+async function openAICompatible(
+  which: keyof typeof OPENAI_COMPATIBLE,
+  system: string,
+  user: string
+): Promise<unknown> {
+  const config = OPENAI_COMPATIBLE[which];
+  const key = process.env[config.envKey];
+  if (!key) throw new Error(`${which}_no_key`);
+
+  const model = process.env[`${which.toUpperCase()}_MODEL`] ?? config.defaultModel;
+
+  const response = await fetch(config.url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.CEREBRAS_API_KEY}`,
+      Authorization: `Bearer ${key}`,
     },
     body: JSON.stringify({
-      model: CEREBRAS_MODEL,
-      max_completion_tokens: 700,
+      model,
+      [config.maxTokensField]: 700,
       temperature: 0.7,
       messages: [
         { role: "system", content: system },
@@ -192,12 +230,12 @@ async function cerebras(system: string, user: string): Promise<unknown> {
     }),
   });
 
-  if (!response.ok) throw new Error(`cerebras_${response.status}`);
+  if (!response.ok) throw new Error(`${which}_${response.status}`);
   const payload = (await response.json()) as {
     choices?: { message?: { content?: string } }[];
   };
   const text = payload.choices?.[0]?.message?.content;
-  if (!text) throw new Error("cerebras_empty");
+  if (!text) throw new Error(`${which}_empty`);
   return extractJSON(text);
 }
 
@@ -244,8 +282,9 @@ app.post("/v1/enrich", async (req, res) => {
   try {
     let candidate: unknown;
 
-    if (provider === "cerebras") {
-      candidate = await cerebras(
+    if (provider === "gemini" || provider === "cerebras") {
+      candidate = await openAICompatible(
+        provider,
         `${HOUSE_STYLE}\n\nReply with JSON only. No markdown, no commentary.`,
         `${prompt}\n\nReturn JSON with exactly these keys: ${Object.keys(schema.shape).join(", ")}.`
       );

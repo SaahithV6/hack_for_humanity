@@ -9,10 +9,16 @@ services:
     startCommand: npm start
     healthCheckPath: /health
     envVars:
-      # Set this in the Render dashboard. It is the whole reason this service
-      # exists: an iOS app cannot hold an API key, because anyone can extract
-      # it from the bundle.
-      - key: ANTHROPIC_API_KEY
+      # Set the key for whichever provider you are using in the Render
+      # dashboard. This service exists precisely so the key is not in the app,
+      # where anyone could extract it from the bundle.
+      #
+      # The provider is chosen by whichever key is present:
+      #   GEMINI_API_KEY    -> Gemini (has a genuinely free tier)
+      #   CEREBRAS_API_KEY  -> Cerebras (fastest; $5 trial, needs a card)
+      #   ANTHROPIC_API_KEY -> Claude
+      # Set PROVIDER explicitly to override.
+      - key: GEMINI_API_KEY
         sync: false
       - key: NODE_VERSION
         value: "22"
